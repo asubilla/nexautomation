@@ -5,14 +5,20 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/app-layout";
 import NotFound from "@/pages/not-found";
 
-const queryClient = new QueryClient();
+import Dashboard from "@/pages/dashboard";
+import Accounts from "@/pages/accounts";
+import Credentials from "@/pages/credentials";
+import Jobs from "@/pages/jobs";
+import Settings from "@/pages/settings";
 
-// Placeholder pages until implemented
-const Dashboard = () => <div className="text-2xl font-mono">Dashboard (Coming soon)</div>;
-const Accounts = () => <div className="text-2xl font-mono">Accounts (Coming soon)</div>;
-const Credentials = () => <div className="text-2xl font-mono">Credentials (Coming soon)</div>;
-const Jobs = () => <div className="text-2xl font-mono">Jobs (Coming soon)</div>;
-const Settings = () => <div className="text-2xl font-mono">Settings (Coming soon)</div>;
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    },
+  },
+});
 
 function Router() {
   return (
