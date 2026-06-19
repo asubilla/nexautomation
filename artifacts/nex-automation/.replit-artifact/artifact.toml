@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Nex Automation"
+version = "1.0.0"
+id = "artifacts/nex-automation"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22168
+
+[services.development]
+run = "pnpm --filter @workspace/nex-automation run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/nex-automation", "run", "build" ]
+publicDir = "artifacts/nex-automation/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22168"
+BASE_PATH = "/"

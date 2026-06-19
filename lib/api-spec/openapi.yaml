@@ -3,20 +3,29 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Nex Automation API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: accounts
+    description: Monitored social media accounts
+  - name: credentials
+    description: Platform upload credentials
+  - name: jobs
+    description: Download and upload jobs
+  - name: dashboard
+    description: Dashboard statistics
+  - name: ai
+    description: AI content generation
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +33,286 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: List all monitored accounts
+      responses:
+        "200":
+          description: List of monitored accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonitoredAccount"
+    post:
+      operationId: createAccount
+      tags: [accounts]
+      summary: Add a monitored account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MonitoredAccountInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoredAccount"
+
+  /accounts/{id}:
+    get:
+      operationId: getAccount
+      tags: [accounts]
+      summary: Get a monitored account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Account details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoredAccount"
+    patch:
+      operationId: updateAccount
+      tags: [accounts]
+      summary: Update a monitored account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MonitoredAccountUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoredAccount"
+    delete:
+      operationId: deleteAccount
+      tags: [accounts]
+      summary: Remove a monitored account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /credentials:
+    get:
+      operationId: listCredentials
+      tags: [credentials]
+      summary: List platform credentials
+      responses:
+        "200":
+          description: List of credentials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformCredential"
+    post:
+      operationId: createCredential
+      tags: [credentials]
+      summary: Add platform credentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlatformCredentialInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformCredential"
+
+  /credentials/{id}:
+    delete:
+      operationId: deleteCredential
+      tags: [credentials]
+      summary: Remove platform credentials
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /jobs/downloads:
+    get:
+      operationId: listDownloadJobs
+      tags: [jobs]
+      summary: List download jobs
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, downloading, done, failed]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of download jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DownloadJob"
+
+  /jobs/uploads:
+    get:
+      operationId: listUploadJobs
+      tags: [jobs]
+      summary: List upload jobs
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, uploading, done, failed]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of upload jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UploadJob"
+
+  /jobs/uploads/{id}/retry:
+    post:
+      operationId: retryUploadJob
+      tags: [jobs]
+      summary: Retry a failed upload job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Retried
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadJob"
+
+  /jobs/trigger:
+    post:
+      operationId: triggerCheck
+      tags: [jobs]
+      summary: Manually trigger a check for new videos
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriggerCheckInput"
+      responses:
+        "200":
+          description: Trigger result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerCheckResult"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /ai/generate:
+    post:
+      operationId: generateContent
+      tags: [ai]
+      summary: Generate AI title and hashtags for a video
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateContentInput"
+      responses:
+        "200":
+          description: Generated content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedContent"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +323,221 @@ components:
       required:
         - status
 
+    MonitoredAccount:
+      type: object
+      required: [id, platform, username, url, enabled, createdAt]
+      properties:
+        id:
+          type: integer
+        platform:
+          type: string
+          enum: [youtube, instagram, facebook, tiktok]
+        username:
+          type: string
+        url:
+          type: string
+        enabled:
+          type: boolean
+        lastCheckedAt:
+          type: ["string", "null"]
+        lastVideoAt:
+          type: ["string", "null"]
+        totalDownloaded:
+          type: integer
+        createdAt:
+          type: string
+
+    MonitoredAccountInput:
+      type: object
+      required: [platform, username, url]
+      properties:
+        platform:
+          type: string
+          enum: [youtube, instagram, facebook, tiktok]
+        username:
+          type: string
+        url:
+          type: string
+        enabled:
+          type: boolean
+
+    MonitoredAccountUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+        url:
+          type: string
+        enabled:
+          type: boolean
+
+    PlatformCredential:
+      type: object
+      required: [id, platform, label, connectedAt]
+      properties:
+        id:
+          type: integer
+        platform:
+          type: string
+          enum: [youtube, instagram, facebook, tiktok]
+        label:
+          type: string
+        connectedAt:
+          type: string
+        isValid:
+          type: boolean
+
+    PlatformCredentialInput:
+      type: object
+      required: [platform, label, accessToken]
+      properties:
+        platform:
+          type: string
+          enum: [youtube, instagram, facebook, tiktok]
+        label:
+          type: string
+        accessToken:
+          type: string
+        refreshToken:
+          type: ["string", "null"]
+        clientId:
+          type: ["string", "null"]
+        clientSecret:
+          type: ["string", "null"]
+
+    DownloadJob:
+      type: object
+      required: [id, accountId, platform, videoUrl, status, createdAt]
+      properties:
+        id:
+          type: integer
+        accountId:
+          type: integer
+        platform:
+          type: string
+        username:
+          type: string
+        videoUrl:
+          type: string
+        originalTitle:
+          type: ["string", "null"]
+        thumbnailUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, downloading, done, failed]
+        errorMessage:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+
+    UploadJob:
+      type: object
+      required: [id, downloadJobId, targetPlatform, status, createdAt]
+      properties:
+        id:
+          type: integer
+        downloadJobId:
+          type: integer
+        targetPlatform:
+          type: string
+          enum: [youtube, instagram, facebook, tiktok]
+        aiTitle:
+          type: ["string", "null"]
+        aiHashtags:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, uploading, done, failed]
+        errorMessage:
+          type: ["string", "null"]
+        uploadedUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+
+    TriggerCheckInput:
+      type: object
+      properties:
+        accountId:
+          type: ["integer", "null"]
+
+    TriggerCheckResult:
+      type: object
+      required: [checked, newVideosFound, jobsCreated]
+      properties:
+        checked:
+          type: integer
+        newVideosFound:
+          type: integer
+        jobsCreated:
+          type: integer
+
+    DashboardStats:
+      type: object
+      required: [totalAccounts, activeAccounts, totalDownloads, totalUploads, pendingJobs, failedJobs, connectedPlatforms]
+      properties:
+        totalAccounts:
+          type: integer
+        activeAccounts:
+          type: integer
+        totalDownloads:
+          type: integer
+        totalUploads:
+          type: integer
+        pendingJobs:
+          type: integer
+        failedJobs:
+          type: integer
+        connectedPlatforms:
+          type: integer
+        downloadsToday:
+          type: integer
+        uploadsToday:
+          type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, type, platform, message, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [download_started, download_done, download_failed, upload_done, upload_failed, account_added]
+        platform:
+          type: string
+        username:
+          type: ["string", "null"]
+        message:
+          type: string
+        createdAt:
+          type: string
+
+    GenerateContentInput:
+      type: object
+      required: [originalTitle, platform]
+      properties:
+        originalTitle:
+          type: string
+        platform:
+          type: string
+        niche:
+          type: ["string", "null"]
+        language:
+          type: ["string", "null"]
+
+    GeneratedContent:
+      type: object
+      required: [title, hashtags]
+      properties:
+        title:
+          type: string
+        hashtags:
+          type: array
+          items:
+            type: string
