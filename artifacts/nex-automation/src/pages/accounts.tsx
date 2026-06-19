@@ -173,15 +173,23 @@ function AddAccountDialog() {
     );
   };
 
+  const normalizeUrl = (raw: string): string => {
+    const trimmed = raw.trim();
+    if (!trimmed) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!platform || !username || !url) return;
+    const normalizedUrl = normalizeUrl(url);
 
     createAccount.mutate({
       data: {
         platform: platform as any,
         username,
-        url,
+        url: normalizedUrl,
         enabled: true,
         uploadTargets,
       } as any
@@ -247,15 +255,17 @@ function AddAccountDialog() {
               value={url}
               onChange={e => setUrl(e.target.value)}
               placeholder={
-                platform === "youtube" ? "https://youtube.com/@MrBeast" :
-                platform === "tiktok" ? "https://tiktok.com/@charlidamelio" :
-                platform === "instagram" ? "https://instagram.com/cristiano" :
-                "https://facebook.com/NASA"
+                platform === "youtube" ? "youtube.com/@MrBeast  ya  www.youtube.com/@MrBeast" :
+                platform === "tiktok" ? "tiktok.com/@charlidamelio" :
+                platform === "instagram" ? "instagram.com/cristiano" :
+                "facebook.com/NASA"
               }
-              type="url"
+              type="text"
               required
             />
-            <p className="text-xs text-muted-foreground font-mono">Paste the full profile/channel URL. Must be a public account.</p>
+            <p className="text-xs text-muted-foreground font-mono">
+              Sirf URL paste karo — https:// apne aap lag jayega.
+            </p>
           </div>
 
           <div className="space-y-3">
