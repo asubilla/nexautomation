@@ -6,6 +6,7 @@ import jobsRouter from "./jobs";
 import dashboardRouter from "./dashboard";
 import aiRouter from "./ai";
 import settingsRouter from "./settings";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(jobsRouter);
 router.use(dashboardRouter);
 router.use(aiRouter);
 router.use(settingsRouter);
+router.use(analyticsRouter);
 
 export default router;

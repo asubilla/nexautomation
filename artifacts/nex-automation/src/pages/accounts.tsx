@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useListAccounts, useCreateAccount, useUpdateAccount, useDeleteAccount, getListAccountsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Trash2, ExternalLink, Upload } from "lucide-react";
+import { Plus, Search, Trash2, ExternalLink, Upload, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -29,6 +30,7 @@ export default function Accounts() {
   const deleteAccount = useDeleteAccount();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [search, setSearch] = useState("");
 
@@ -134,7 +136,16 @@ export default function Accounts() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 font-mono text-xs text-primary hover:text-primary hover:bg-primary/10 border border-primary/20"
+                      onClick={() => navigate(`/analytics/${account.id}`)}
+                    >
+                      <BarChart2 className="w-3.5 h-3.5" />
+                      ANALYTICS
+                    </Button>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-mono text-muted-foreground">{account.enabled ? 'ACTIVE' : 'PAUSED'}</span>
                       <Switch
