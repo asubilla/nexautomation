@@ -150,7 +150,7 @@ function AddCredentialDialog({ defaultPlatform, buttonProps = {} }: { defaultPla
                   <SelectValue placeholder="Select platform" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.values(PlatformCredentialInputPlatform).map(p => (
+                  {PLATFORMS.map(p => (
                     <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
                   ))}
                 </SelectContent>

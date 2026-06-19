@@ -8,6 +8,8 @@ export const monitoredAccountsTable = pgTable("monitored_accounts", {
   username: text("username").notNull(),
   url: text("url").notNull(),
   enabled: boolean("enabled").notNull().default(true),
+  uploadTargets: text("upload_targets").notNull().default("[]"),
+  latestVideoId: text("latest_video_id"),
   lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
   lastVideoAt: timestamp("last_video_at", { withTimezone: true }),
   totalDownloaded: integer("total_downloaded").notNull().default(0),

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, isNull } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db, downloadJobsTable, uploadJobsTable, activityItemsTable, monitoredAccountsTable } from "@workspace/db";
 import {
   ListDownloadJobsQueryParams,
@@ -7,6 +7,7 @@ import {
   RetryUploadJobParams,
   TriggerCheckBody,
 } from "@workspace/api-zod";
+import { checkAccountForNewVideos, runFullCheck, processPendingDownloads, processPendingUploads } from "../services/scheduler";
 
 const router: IRouter = Router();
 
@@ -89,6 +90,8 @@ router.post("/jobs/uploads/:id/retry", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Upload job not found" });
     return;
   }
+
+  processPendingUploads().catch(() => {});
   res.json(formatUploadJob(job));
 });
 
@@ -100,59 +103,23 @@ router.post("/jobs/trigger", async (req, res): Promise<void> => {
   }
   const { accountId } = parsed.data;
 
-  let accounts;
-  if (accountId != null) {
-    accounts = await db
-      .select()
-      .from(monitoredAccountsTable)
-      .where(and(eq(monitoredAccountsTable.id, accountId), eq(monitoredAccountsTable.enabled, true)));
-  } else {
-    accounts = await db
-      .select()
-      .from(monitoredAccountsTable)
-      .where(eq(monitoredAccountsTable.enabled, true));
-  }
+  res.json({ status: "started", message: "Check initiated in background" });
 
-  const now = new Date();
-  let jobsCreated = 0;
-
-  for (const account of accounts) {
-    await db
-      .update(monitoredAccountsTable)
-      .set({ lastCheckedAt: now })
-      .where(eq(monitoredAccountsTable.id, account.id));
-
-    // Simulate finding a new video (in production this would call the platform APIs)
-    const fakeVideoUrl = `https://${account.platform}.com/watch?v=${Math.random().toString(36).slice(2, 10)}`;
-    const [downloadJob] = await db
-      .insert(downloadJobsTable)
-      .values({
-        accountId: account.id,
-        platform: account.platform,
-        username: account.username,
-        videoUrl: fakeVideoUrl,
-        originalTitle: `New video from ${account.username}`,
-        status: "pending",
-      })
-      .returning();
-
-    await db.insert(uploadJobsTable).values({
-      downloadJobId: downloadJob.id,
-      targetPlatform: account.platform === "youtube" ? "tiktok" : "youtube",
-      status: "pending",
-    });
-
-    await db.insert(activityItemsTable).values({
-      type: "download_started",
-      platform: account.platform,
-      username: account.username,
-      message: `New video detected from @${account.username} on ${account.platform}`,
-    });
-
-    jobsCreated++;
-  }
-
-  res.json({ checked: accounts.length, newVideosFound: jobsCreated, jobsCreated });
+  setImmediate(async () => {
+    try {
+      if (accountId != null) {
+        const newVideos = await checkAccountForNewVideos(accountId);
+        if (newVideos > 0) {
+          await processPendingDownloads();
+          await processPendingUploads();
+        }
+      } else {
+        await runFullCheck();
+      }
+    } catch (err) {
+      req.log?.error({ err }, "Trigger check error");
+    }
+  });
 });
 
 export default router;
