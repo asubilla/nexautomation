@@ -5,6 +5,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { startScheduler } from "./services/scheduler";
 
+
 const app: Express = express();
 
 app.use(
@@ -32,6 +33,6 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
-startScheduler();
+startScheduler().catch((err) => logger.error({ err }, "Scheduler failed to start"));
 
 export default app;

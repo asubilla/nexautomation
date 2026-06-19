@@ -5,6 +5,7 @@ import credentialsRouter from "./credentials";
 import jobsRouter from "./jobs";
 import dashboardRouter from "./dashboard";
 import aiRouter from "./ai";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(credentialsRouter);
 router.use(jobsRouter);
 router.use(dashboardRouter);
 router.use(aiRouter);
+router.use(settingsRouter);
 
 export default router;

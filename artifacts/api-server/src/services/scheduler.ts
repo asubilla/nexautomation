@@ -1,11 +1,49 @@
-import { db, monitoredAccountsTable, downloadJobsTable, uploadJobsTable, activityItemsTable } from "@workspace/db";
+import { db, monitoredAccountsTable, downloadJobsTable, uploadJobsTable, activityItemsTable, settingsTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { getLatestVideos, downloadVideo } from "./downloader";
 import { uploadVideo } from "./uploader";
 import { generateContent } from "./ai-generator";
 
-const CHECK_INTERVAL_MS = 15 * 60 * 1000;
+const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
+
+let currentIntervalMs = DEFAULT_INTERVAL_MS;
+let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
+let isRunning = false;
+
+async function loadIntervalFromDb(): Promise<number> {
+  try {
+    const [row] = await db.select().from(settingsTable).where(eq(settingsTable.key, "check_interval_ms"));
+    if (row) {
+      const ms = parseInt(row.value, 10);
+      if (!isNaN(ms) && ms > 0) return ms;
+    }
+  } catch {}
+  return DEFAULT_INTERVAL_MS;
+}
+
+export function setSchedulerInterval(ms: number): void {
+  currentIntervalMs = ms;
+  logger.info({ ms }, "Scheduler interval updated");
+  if (schedulerTimer) {
+    clearTimeout(schedulerTimer);
+    schedulerTimer = null;
+    scheduleNext();
+  }
+}
+
+function scheduleNext(): void {
+  if (schedulerTimer) clearTimeout(schedulerTimer);
+  schedulerTimer = setTimeout(async () => {
+    logger.info({ intervalMs: currentIntervalMs }, "Scheduler: running automation check");
+    try {
+      await runFullCheck();
+    } catch (err) {
+      logger.error({ err }, "Scheduler: error during check");
+    }
+    scheduleNext();
+  }, currentIntervalMs);
+}
 
 export async function checkAccountForNewVideos(accountId: number): Promise<number> {
   const [account] = await db
@@ -121,9 +159,10 @@ export async function processPendingDownloads(): Promise<void> {
         })
         .where(eq(downloadJobsTable.id, job.id));
 
+      const [acct] = await db.select({ total: monitoredAccountsTable.totalDownloaded }).from(monitoredAccountsTable).where(eq(monitoredAccountsTable.id, job.accountId));
       await db
         .update(monitoredAccountsTable)
-        .set({ totalDownloaded: (await db.select({ total: monitoredAccountsTable.totalDownloaded }).from(monitoredAccountsTable).where(eq(monitoredAccountsTable.id, job.accountId)))[0]?.total + 1 || 1 })
+        .set({ totalDownloaded: (acct?.total ?? 0) + 1 })
         .where(eq(monitoredAccountsTable.id, job.accountId));
 
       await db.insert(activityItemsTable).values({
@@ -142,14 +181,10 @@ export async function processPendingDownloads(): Promise<void> {
 
       if (account) {
         let uploadTargets: string[] = [];
-        try {
-          uploadTargets = JSON.parse(account.uploadTargets ?? "[]");
-        } catch {
-          uploadTargets = [];
-        }
+        try { uploadTargets = JSON.parse(account.uploadTargets ?? "[]"); } catch {}
 
         for (const targetPlatform of uploadTargets) {
-          const generated = generateContent(job.originalTitle ?? result.title, targetPlatform);
+          const generated = await generateContent(job.originalTitle ?? result.title, targetPlatform);
           await db.insert(uploadJobsTable).values({
             downloadJobId: job.id,
             targetPlatform,
@@ -157,14 +192,12 @@ export async function processPendingDownloads(): Promise<void> {
             aiHashtags: generated.hashtags,
             status: "pending",
           });
-
           logger.info({ jobId: job.id, targetPlatform }, "Created upload job");
         }
       }
 
     } catch (err: any) {
       logger.error({ err, jobId: job.id }, "Download failed");
-
       await db
         .update(downloadJobsTable)
         .set({ status: "failed", errorMessage: err.message.slice(0, 300) })
@@ -193,9 +226,7 @@ export async function processPendingUploads(): Promise<void> {
       .from(downloadJobsTable)
       .where(eq(downloadJobsTable.id, job.downloadJobId));
 
-    if (!downloadJob || downloadJob.status !== "done" || !downloadJob.localFilePath) {
-      continue;
-    }
+    if (!downloadJob || downloadJob.status !== "done" || !downloadJob.localFilePath) continue;
 
     logger.info({ uploadJobId: job.id, platform: job.targetPlatform }, "Starting upload");
 
@@ -223,7 +254,6 @@ export async function processPendingUploads(): Promise<void> {
         username: downloadJob.username,
         message: `Uploaded to ${job.targetPlatform}: "${(job.aiTitle ?? "Video").slice(0, 60)}"`,
       });
-
       logger.info({ uploadJobId: job.id, uploadedUrl: result.uploadedUrl }, "Upload completed");
     } else {
       await db
@@ -237,7 +267,6 @@ export async function processPendingUploads(): Promise<void> {
         username: downloadJob.username,
         message: `Upload failed to ${job.targetPlatform}: ${result.errorMessage?.slice(0, 80)}`,
       });
-
       logger.warn({ uploadJobId: job.id, error: result.errorMessage }, "Upload failed");
     }
   }
@@ -254,29 +283,19 @@ export async function runFullCheck(): Promise<{ checked: number; newVideos: numb
     const count = await checkAccountForNewVideos(account.id);
     newVideos += count;
   }
-
   await processPendingDownloads();
   await processPendingUploads();
-
   return { checked: accounts.length, newVideos };
 }
 
-let schedulerTimer: ReturnType<typeof setInterval> | null = null;
+export async function startScheduler(): Promise<void> {
+  if (isRunning) return;
+  isRunning = true;
 
-export function startScheduler(): void {
-  if (schedulerTimer) return;
+  currentIntervalMs = await loadIntervalFromDb();
+  logger.info({ intervalMs: currentIntervalMs }, "Automation scheduler started");
 
-  logger.info("Automation scheduler started (15-minute interval)");
-
-  schedulerTimer = setInterval(async () => {
-    logger.info("Scheduler: running full automation check");
-    try {
-      const result = await runFullCheck();
-      logger.info(result, "Scheduler: check complete");
-    } catch (err) {
-      logger.error({ err }, "Scheduler: error during check");
-    }
-  }, CHECK_INTERVAL_MS);
+  scheduleNext();
 
   processPendingDownloads().catch(err => logger.error({ err }, "Startup: pending download error"));
   processPendingUploads().catch(err => logger.error({ err }, "Startup: pending upload error"));
@@ -284,8 +303,9 @@ export function startScheduler(): void {
 
 export function stopScheduler(): void {
   if (schedulerTimer) {
-    clearInterval(schedulerTimer);
+    clearTimeout(schedulerTimer);
     schedulerTimer = null;
-    logger.info("Scheduler stopped");
   }
+  isRunning = false;
+  logger.info("Scheduler stopped");
 }
