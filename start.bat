@@ -14,18 +14,15 @@ for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr /R "\<80\>" ^| findstr
 )
 timeout /t 1 /nobreak > nul
 
-:: Build frontend only if not built yet
-if exist "e:\Nex Automation\artifacts\nex-automation\dist\public\index.html" (
-    echo Frontend: already built, skipping...
-) else (
-    echo Frontend: building for first time, please wait...
-    cd /d "e:\Nex Automation\artifacts\nex-automation"
-    set PORT=80
-    set BASE_PATH=/
-    set API_PORT=80
-    set NODE_ENV=production
-    call npx --no vite build --config vite.config.ts
-)
+:: Always rebuild frontend so VITE_API_BASE_URL bakes in correctly
+echo Building frontend (this ensures TikTok OAuth URL is set correctly)...
+cd /d "e:\Nex Automation\artifacts\nex-automation"
+set PORT=80
+set BASE_PATH=/
+set API_PORT=80
+set NODE_ENV=production
+set VITE_API_BASE_URL=http://localhost:80
+call npx --no vite build --config vite.config.ts
 
 :: Start server in a new window that stays open
 echo Starting server...

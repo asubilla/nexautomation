@@ -8,7 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, getApiBase } from "@/lib/utils";
 
 const PLATFORMS = ["youtube", "instagram", "facebook", "tiktok"] as const;
 type Platform = typeof PLATFORMS[number];
@@ -332,7 +332,7 @@ function ConnectDialog({
             <Button
               type="button"
               className="w-full gap-2 text-xs bg-[#010101] text-white hover:bg-black/90 border border-zinc-800"
-              onClick={() => window.open("/api/auth/tiktok", "_blank")}
+              onClick={() => window.open(`${getApiBase()}/api/auth/tiktok`, "_self")}
             >
               <svg className="w-4 h-4 flex-shrink-0 fill-current" viewBox="0 0 24 24">
                 <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.02-2.89-.35-4.2-1-.28-.15-.56-.32-.83-.51.02 2.6.01 5.2.02 7.8-.04 2.29-.67 4.67-2.33 6.27-1.66 1.65-4.11 2.45-6.43 2.44-2.32-.01-4.78-.79-6.43-2.45C.61 20.48-.03 18.09 0 15.79c-.04-2.29.6-4.76 2.25-6.42 1.66-1.66 4.1-2.47 6.42-2.45v4.09c-1.39-.02-2.88.42-3.84 1.45s-1.34 2.58-1.22 3.97c.11 1.39.9 2.77 2.07 3.51 1.17.75 2.71.87 4 .31 1.29-.56 2.07-1.87 2.1-3.27.02-3.66.01-7.32.02-10.98.01-1.31.02-2.61.02-3.92-.01-.01-.01-.01 0-.01z"/>
