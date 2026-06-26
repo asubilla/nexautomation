@@ -75,6 +75,8 @@ export default function Credentials() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // Handle Cloudflare Worker OAuth callback redirections
+  // Note: Worker already saved credentials to Neon DB directly.
+  // Frontend just needs to refresh the list and show a success toast.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const error = params.get("error");
@@ -92,104 +94,35 @@ export default function Credentials() {
 
     if (tiktokConnected) {
       const username = params.get("username") || "TikTok Account";
-      const accessToken = params.get("accessToken");
-      const refreshToken = params.get("refreshToken");
-      if (accessToken) {
-        toast({ title: "Connecting TikTok...", description: "Saving credentials to database..." });
-        createCredential.mutate(
-          { data: { platform: "tiktok", label: username, accessToken, refreshToken } },
-          {
-            onSuccess: () => {
-              toast({ title: "✅ TikTok Connected!", description: `@${username} account successfully linked.` });
-              queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
-            },
-            onError: (err: any) => {
-              toast({ title: "TikTok Connection Failed", description: err.data?.error || err.message, variant: "destructive" });
-            }
-          }
-        );
-      }
+      toast({ title: "✅ TikTok Connected!", description: `@${username} account successfully linked.` });
+      // Delay refresh so DB write settles
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() }), 1500);
       window.history.replaceState({}, "", "/credentials");
+
     } else if (youtubeConnected) {
       const username = params.get("username") || "YouTube Channel";
-      const accessToken = params.get("accessToken");
-      const refreshToken = params.get("refreshToken");
-      if (accessToken) {
-        toast({ title: "Connecting YouTube...", description: "Saving credentials to database..." });
-        createCredential.mutate(
-          { data: { platform: "youtube", label: username, accessToken, refreshToken } },
-          {
-            onSuccess: () => {
-              toast({ title: "✅ YouTube Connected!", description: `"${username}" successfully linked.` });
-              queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
-            },
-            onError: (err: any) => {
-              toast({ title: "YouTube Connection Failed", description: err.data?.error || err.message, variant: "destructive" });
-            }
-          }
-        );
-      }
+      toast({ title: "✅ YouTube Connected!", description: `"${username}" channel successfully linked.` });
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() }), 1500);
       window.history.replaceState({}, "", "/credentials");
+
     } else if (instagramConnected) {
       const username = params.get("username") || "Instagram Account";
-      const accessToken = params.get("accessToken");
-      const clientId = params.get("clientId");
-      if (accessToken) {
-        toast({ title: "Connecting Instagram...", description: "Saving credentials to database..." });
-        createCredential.mutate(
-          { data: { platform: "instagram", label: username, accessToken, clientId } },
-          {
-            onSuccess: () => {
-              toast({ title: "✅ Instagram Connected!", description: `@${username} successfully linked.` });
-              queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
-            },
-            onError: (err: any) => {
-              toast({ title: "Instagram Connection Failed", description: err.data?.error || err.message, variant: "destructive" });
-            }
-          }
-        );
-      }
+      toast({ title: "✅ Instagram Connected!", description: `@${username} successfully linked.` });
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() }), 1500);
       window.history.replaceState({}, "", "/credentials");
+
     } else if (facebookConnected) {
       const pagesStr = params.get("pages");
+      let pageCount = 0;
       if (pagesStr) {
-        try {
-          const pages = JSON.parse(pagesStr);
-          if (Array.isArray(pages) && pages.length > 0) {
-            toast({ title: "Connecting Facebook Pages...", description: `Saving ${pages.length} page(s) to database...` });
-            
-            // Create credentials for all pages
-            let successCount = 0;
-            let failCount = 0;
-            pages.forEach((page) => {
-              createCredential.mutate(
-                { data: { platform: "facebook", label: page.name, accessToken: page.accessToken, clientId: page.id } },
-                {
-                  onSuccess: () => {
-                    successCount++;
-                    if (successCount + failCount === pages.length) {
-                      toast({ title: "✅ Facebook Connected!", description: `Successfully linked ${successCount} pages.` });
-                      queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
-                    }
-                  },
-                  onError: (err: any) => {
-                    failCount++;
-                    toast({ title: `Failed to link page "${page.name}"`, description: err.data?.error || err.message, variant: "destructive" });
-                    if (successCount + failCount === pages.length) {
-                      queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
-                    }
-                  }
-                }
-              );
-            });
-          }
-        } catch (e) {
-          toast({ title: "Facebook Connection Failed", description: "Invalid pages data received", variant: "destructive" });
-        }
+        try { pageCount = JSON.parse(pagesStr).length; } catch {}
       }
+      toast({ title: "✅ Facebook Connected!", description: `${pageCount} page(s) successfully linked.` });
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() }), 1500);
       window.history.replaceState({}, "", "/credentials");
     }
   }, [queryClient, toast]);
+
 
   const handleDelete = (id: number, label: string, platform: string) => {
     if (!confirm(`Disconnect "${label}" from ${platform}? Uploads will fail until reconnected.`)) return;

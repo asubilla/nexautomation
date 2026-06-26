@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../lib/types";
 import { saveToken } from "../lib/kv";
+import { saveCredentialToDb } from "../lib/db-sync";
 
 const instagram = new Hono<{ Bindings: Env }>();
 
@@ -89,6 +90,7 @@ instagram.get("/callback", async (c) => {
       }
     }
 
+    // Save to KV
     await saveToken(c.env.AUTH_TOKENS, "instagram", {
       platform: "instagram",
       accessToken: longToken,
@@ -98,11 +100,15 @@ instagram.get("/callback", async (c) => {
       connectedAt: Date.now(),
     });
 
+    // ── Save directly to Neon DB (frontend reads from here) ───────────────
+    await saveCredentialToDb(c.env, "instagram", igUsername, longToken, {
+      clientId: igAccountId,
+    });
+
+    // Redirect frontend with success
     const searchParams = new URLSearchParams({
       instagram_connected: "true",
       username: igUsername,
-      accessToken: longToken,
-      clientId: igAccountId,
     });
 
     return c.redirect(`${FRONTEND_URL}/credentials?${searchParams.toString()}`);

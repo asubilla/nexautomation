@@ -2,6 +2,7 @@ export interface Env {
   AUTH_TOKENS: KVNamespace;
   NEX_UPLOADS: R2Bucket;
   FRONTEND_URL: string;
+  DATABASE_URL: string;
   TIKTOK_CLIENT_KEY: string;
   TIKTOK_CLIENT_SECRET: string;
   FACEBOOK_APP_ID: string;

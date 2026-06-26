@@ -1,12 +1,13 @@
 import { Hono } from "hono";
 import type { Env } from "../lib/types";
 import { saveToken } from "../lib/kv";
+import { saveCredentialToDb } from "../lib/db-sync";
 
 const tiktok = new Hono<{ Bindings: Env }>();
 
 // GET /auth/tiktok — redirect to TikTok consent screen
 tiktok.get("/", (c) => {
-  const { TIKTOK_CLIENT_KEY, FRONTEND_URL } = c.env;
+  const { TIKTOK_CLIENT_KEY } = c.env;
   if (!TIKTOK_CLIENT_KEY) {
     return c.json({ error: "TikTok Client Key not configured" }, 500);
   }
@@ -67,7 +68,7 @@ tiktok.get("/callback", async (c) => {
     const user = profileData?.data?.user;
     const username = user?.username || user?.display_name || "TikTok Account";
 
-    // Save to KV
+    // Save to KV (for upload.ts lookups)
     await saveToken(c.env.AUTH_TOKENS, "tiktok", {
       platform: "tiktok",
       accessToken: tokenData.access_token,
@@ -77,11 +78,15 @@ tiktok.get("/callback", async (c) => {
       connectedAt: Date.now(),
     });
 
+    // ── Save directly to Neon DB (frontend reads from here) ───────────────
+    await saveCredentialToDb(c.env, "tiktok", username, tokenData.access_token, {
+      refreshToken: tokenData.refresh_token,
+    });
+
+    // Redirect frontend with success
     const searchParams = new URLSearchParams({
       tiktok_connected: "true",
       username,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token || "",
     });
 
     return c.redirect(`${FRONTEND_URL}/credentials?${searchParams.toString()}`);

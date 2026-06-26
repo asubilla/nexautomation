@@ -21,6 +21,7 @@ INSTAGRAM_APP_ID = ""
 # FACEBOOK_APP_SECRET
 # GOOGLE_CLIENT_SECRET
 # INSTAGRAM_APP_SECRET
+# DATABASE_URL   ← Neon PostgreSQL connection string
 
 [[r2_buckets]]
 binding = "NEX_UPLOADS"

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../lib/types";
 import { saveToken } from "../lib/kv";
+import { saveCredentialToDb } from "../lib/db-sync";
 
 const facebook = new Hono<{ Bindings: Env }>();
 
@@ -71,7 +72,7 @@ facebook.get("/callback", async (c) => {
     const pagesData = await pagesRes.json() as any;
     const pages = pagesData.data || [];
 
-    // Save each page as a separate token
+    // Save each page as a separate token in KV AND in Neon DB
     for (const page of pages) {
       await saveToken(c.env.AUTH_TOKENS, `facebook_page_${page.id}`, {
         platform: "facebook",
@@ -80,9 +81,14 @@ facebook.get("/callback", async (c) => {
         pageName: page.name,
         connectedAt: Date.now(),
       });
+
+      // ── Save page credentials directly to Neon DB ─────────────────────
+      await saveCredentialToDb(c.env, "facebook", page.name, page.access_token, {
+        clientId: page.id,
+      });
     }
 
-    // Also save the user token
+    // Also save the user token in KV
     await saveToken(c.env.AUTH_TOKENS, "facebook", {
       platform: "facebook",
       accessToken: longToken,

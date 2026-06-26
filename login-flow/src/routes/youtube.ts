@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../lib/types";
 import { saveToken } from "../lib/kv";
+import { saveCredentialToDb } from "../lib/db-sync";
 
 const youtube = new Hono<{ Bindings: Env }>();
 
@@ -73,6 +74,7 @@ youtube.get("/callback", async (c) => {
     const channel = channelData?.items?.[0];
     const username = channel?.snippet?.title || "YouTube Channel";
 
+    // Save to KV
     await saveToken(c.env.AUTH_TOKENS, "youtube", {
       platform: "youtube",
       accessToken: tokenData.access_token,
@@ -82,11 +84,15 @@ youtube.get("/callback", async (c) => {
       connectedAt: Date.now(),
     });
 
+    // ── Save directly to Neon DB (frontend reads from here) ───────────────
+    await saveCredentialToDb(c.env, "youtube", username, tokenData.access_token, {
+      refreshToken: tokenData.refresh_token,
+    });
+
+    // Redirect frontend with success
     const searchParams = new URLSearchParams({
       youtube_connected: "true",
       username,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token || "",
     });
 
     return c.redirect(`${FRONTEND_URL}/credentials?${searchParams.toString()}`);
