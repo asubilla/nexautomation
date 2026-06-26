@@ -19,5 +19,5 @@ export function getApiBase(): string {
   // In dev mode Vite proxies /api automatically, so empty string = relative
   if (import.meta.env.DEV) return "";
   // Production fallback — local backend default port
-  return "http://localhost:8081";
+  return "http://localhost:80";
 }
