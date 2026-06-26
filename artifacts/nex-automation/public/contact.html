@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact Us – Nex Automation</title>
+  <meta name="description" content="Contact Nex Automation for support, privacy questions, or data deletion requests." />
+  <link rel="canonical" href="https://nex-automation.pages.dev/contact.html" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="favicon.png" type="image/png" />
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+  <div class="page-wrapper">
+
+    <nav>
+      <div class="nav-inner">
+        <a href="index.html" class="logo">
+          <div class="logo-icon">⚡</div>
+          Nex Automation
+        </a>
+        <input type="checkbox" id="nav-toggle" class="nav-toggle" />
+        <label for="nav-toggle" class="nav-toggle-label">
+          <span></span>
+        </label>
+        <div class="nav-links">
+          <a href="index.html">Home</a>
+          <a href="privacy-policy.html">Privacy Policy</a>
+          <a href="terms.html">Terms of Service</a>
+          <a href="data-deletion.html">Data Deletion</a>
+          <a href="contact.html" class="active">Contact Us</a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="section-header">
+      <div class="container">
+        <div class="hero-badge">💬 Support</div>
+        <h1>Contact Us</h1>
+        <p>We typically respond within 24–48 hours</p>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="contact-grid">
+
+        <!-- Left: Info Cards -->
+        <div class="contact-info">
+          <div class="contact-info-card">
+            <div class="contact-info-icon">📧</div>
+            <div>
+              <h4>General Support</h4>
+              <a href="mailto:asubilla115@gmail.com">asubilla115@gmail.com</a>
+            </div>
+          </div>
+          <div class="contact-info-card">
+            <div class="contact-info-icon">🔒</div>
+            <div>
+              <h4>Privacy &amp; Data Requests</h4>
+              <a href="mailto:asubilla115@gmail.com">asubilla115@gmail.com</a>
+              <p style="margin-top: 4px;">For GDPR, data deletion, or credential concerns</p>
+            </div>
+          </div>
+          <div class="contact-info-card">
+            <div class="contact-info-icon">⚖️</div>
+            <div>
+              <h4>Legal Inquiries</h4>
+              <a href="mailto:asubilla115@gmail.com">asubilla115@gmail.com</a>
+            </div>
+          </div>
+          <div class="contact-info-card">
+            <div class="contact-info-icon">⏱️</div>
+            <div>
+              <h4>Response Time</h4>
+              <p>General: 24–48 hours</p>
+              <p>Data deletion: 72 hours max</p>
+              <p>Privacy: 7 days max (legal requirement)</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Form -->
+        <div class="contact-form-card">
+          <h2 style="font-size:20px; margin-bottom:24px; margin-top:0; border:none; padding:0; color: var(--text);">Send a Message</h2>
+          <form id="contactForm" onsubmit="handleContact(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="name">Full Name *</label>
+                <input type="text" id="name" placeholder="Your name" required />
+              </div>
+              <div class="form-group">
+                <label for="email">Email *</label>
+                <input type="email" id="email" placeholder="your@email.com" required />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="subject">Subject *</label>
+              <select id="subject" required>
+                <option value="">Select a topic...</option>
+                <option value="support">Technical Support</option>
+                <option value="privacy">Privacy / Data Question</option>
+                <option value="deletion">Data Deletion Request</option>
+                <option value="api">API / Integration Question</option>
+                <option value="billing">Billing / Account</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="platform">Platform (if applicable)</label>
+              <select id="platform">
+                <option value="">Not platform-specific</option>
+                <option value="tiktok">TikTok</option>
+                <option value="instagram">Instagram</option>
+                <option value="facebook">Facebook</option>
+                <option value="youtube">YouTube</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="message">Message *</label>
+              <textarea id="message" placeholder="Describe your question or issue in detail..." required></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+              Send Message →
+            </button>
+
+            <div class="success-msg" id="contactSuccess">
+              ✅ Message sent! We'll get back to you within 24–48 hours.
+            </div>
+          </form>
+        </div>
+
+      </div>
+
+      <!-- API-specific info box -->
+      <div class="content-card" style="margin-bottom: 40px;">
+        <h2>For Meta / TikTok API Reviewers</h2>
+        <p>If you are a Meta or TikTok platform reviewer reviewing this app for API access, please note:</p>
+        <ul>
+          <li><strong>App Name:</strong> Nex Automation</li>
+          <li><strong>App Purpose:</strong> Automated video cross-posting from YouTube to TikTok, Instagram, and Facebook</li>
+          <li><strong>Data Use:</strong> We only use credentials to post videos on behalf of the account owner. No data is shared with third parties. No data is used for advertising or profiling.</li>
+          <li><strong>Privacy Policy:</strong> <a href="privacy-policy.html">nex-automation.pages.dev/privacy-policy.html</a></li>
+          <li><strong>Data Deletion:</strong> <a href="data-deletion.html">nex-automation.pages.dev/data-deletion.html</a></li>
+          <li><strong>Contact:</strong> <a href="mailto:asubilla115@gmail.com">asubilla115@gmail.com</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <footer>
+      <div class="container">
+        <div class="footer-links">
+          <a href="index.html">Home</a>
+          <a href="privacy-policy.html">Privacy Policy</a>
+          <a href="terms.html">Terms of Service</a>
+          <a href="data-deletion.html">Data Deletion</a>
+          <a href="contact.html">Contact Us</a>
+        </div>
+        <p>© 2025 Nex Automation. All rights reserved.</p>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    function handleContact(e) {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const subject = document.getElementById('subject').value;
+      const platform = document.getElementById('platform').value;
+      const message = document.getElementById('message').value;
+
+      const mailSubject = encodeURIComponent(`[${subject}] Contact from ${name}`);
+      const mailBody = encodeURIComponent(
+        `Name: ${name}\nEmail: ${email}\nSubject: ${subject}\nPlatform: ${platform || 'N/A'}\n\nMessage:\n${message}`
+      );
+      window.location.href = `mailto:asubilla115@gmail.com?subject=${mailSubject}&body=${mailBody}`;
+
+      document.getElementById('contactSuccess').style.display = 'flex';
+      e.target.reset();
+    }
+  </script>
+</body>
+</html>
