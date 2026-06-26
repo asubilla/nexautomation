@@ -495,7 +495,7 @@ function AddAccountDialog() {
                       type="button"
                       className="w-full gap-2 text-xs"
                       variant="outline"
-                      onClick={() => window.open("/api/auth/youtube", "_blank")}
+                      onClick={() => window.open("https://nex-auth.asubilla115.workers.dev/auth/youtube", "_self")}
                     >
                       <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -506,7 +506,7 @@ function AddAccountDialog() {
                       Connect YouTube with Google
                     </Button>
                     <p className="text-[10px] text-muted-foreground font-mono text-center">
-                      Naya tab khulega — connect karke wapas aao
+                      Connect karke credentials verify honge
                     </p>
                   </div>
                 ) : needsTikTokOAuth(t) ? (
@@ -514,7 +514,7 @@ function AddAccountDialog() {
                     <Button
                       type="button"
                       className="w-full gap-2 text-xs bg-[#010101] text-white hover:bg-black/90 border border-zinc-800"
-                      onClick={() => window.open(`${getApiBase()}/api/auth/tiktok`, "_self")}
+                      onClick={() => window.open("https://nex-auth.asubilla115.workers.dev/auth/tiktok", "_self")}
                     >
                       <svg className="w-4 h-4 flex-shrink-0 fill-current" viewBox="0 0 24 24">
                         <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.02-2.89-.35-4.2-1-.28-.15-.56-.32-.83-.51.02 2.6.01 5.2.02 7.8-.04 2.29-.67 4.67-2.33 6.27-1.66 1.65-4.11 2.45-6.43 2.44-2.32-.01-4.78-.79-6.43-2.45C.61 20.48-.03 18.09 0 15.79c-.04-2.29.6-4.76 2.25-6.42 1.66-1.66 4.1-2.47 6.42-2.45v4.09c-1.39-.02-2.88.42-3.84 1.45s-1.34 2.58-1.22 3.97c.11 1.39.9 2.77 2.07 3.51 1.17.75 2.71.87 4 .31 1.29-.56 2.07-1.87 2.1-3.27.02-3.66.01-7.32.02-10.98.01-1.31.02-2.61.02-3.92-.01-.01-.01-.01 0-.01z"/>

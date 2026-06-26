@@ -104,42 +104,120 @@ export async function uploadVideo(
   ].filter(Boolean).join("\n").trim();
 
   try {
+    const isOfficialToken = cred.accessToken.length > 50 && !cred.accessToken.includes(" ");
+    const fileData = readFileSync(filePath);
+    const fileName = filePath.split(/[\\/]/).pop() || "video.mp4";
+
     switch (platform) {
-      case "youtube":
-        return await uploadToYouTube(
-          filePath, title, fullDescription, tags, cred.accessToken,
-          cred.refreshToken ?? undefined, cred.clientId ?? undefined, cred.clientSecret ?? undefined
-        );
-      case "tiktok":
-        if (cred.refreshToken && cred.clientId && cred.clientSecret) {
-          logger.info("TikTok: Credentials contain client key/secret — using official TikTok API upload");
-          const apiResult = await uploadToTikTokAPI(
-            filePath, title, hashtags, description, cred.accessToken,
-            cred.refreshToken, cred.clientId, cred.clientSecret
-          );
-          if (apiResult.success) {
-            return { success: true, uploadedUrl: `https://www.tiktok.com/publish/${apiResult.publishId}` };
-          } else {
-            return { success: false, errorMessage: apiResult.errorMessage };
-          }
+      case "youtube": {
+        logger.info("YouTube: Uploading directly via Cloudflare Worker (Official API)...");
+        const formData = new FormData();
+        formData.append("file", new Blob([fileData], { type: "video/mp4" }), fileName);
+        formData.append("title", title);
+        formData.append("description", fullDescription);
+        formData.append("tags", JSON.stringify(tags));
+
+        const uploadRes = await fetch("https://nex-auth.asubilla115.workers.dev/upload/youtube", {
+          method: "POST",
+          body: formData,
+        });
+
+        const uploadData = await uploadRes.json() as any;
+        if (!uploadRes.ok || uploadData.error) {
+          return { success: false, errorMessage: uploadData.error || `Worker upload failed: HTTP ${uploadRes.status}` };
         }
-        logger.info("TikTok: No client credentials — falling back to Playwright browser automation");
+        return { success: true, uploadedUrl: uploadData.uploadedUrl };
+      }
+
+      case "tiktok": {
+        // If it's an official OAuth token (has client credentials or a long token string)
+        if (isOfficialToken || (cred.refreshToken && cred.clientId && cred.clientSecret)) {
+          logger.info("TikTok: Uploading directly via Cloudflare Worker (Official API)...");
+          const formData = new FormData();
+          formData.append("file", new Blob([fileData], { type: "video/mp4" }), fileName);
+          formData.append("title", title);
+          formData.append("hashtags", hashtags);
+
+          const uploadRes = await fetch("https://nex-auth.asubilla115.workers.dev/upload/tiktok", {
+            method: "POST",
+            body: formData,
+          });
+
+          const uploadData = await uploadRes.json() as any;
+          if (!uploadRes.ok || uploadData.error) {
+            return { success: false, errorMessage: uploadData.error || `Worker upload failed: HTTP ${uploadRes.status}` };
+          }
+          return { success: true, uploadedUrl: uploadData.uploadedUrl };
+        }
+
+        // Fallback to local Playwright browser automation
+        logger.info("TikTok: No official API token — falling back to local Playwright browser automation");
         return await uploadToTikTokPlaywright(
           filePath, title, hashtags,
           { username: cred.label, password: cred.accessToken },
           location ?? "London, UK"
         );
-      case "instagram":
+      }
+
+      case "instagram": {
+        // If it's an official API token (has clientId/igAccountId and access token)
+        if (isOfficialToken && cred.clientId) {
+          logger.info("Instagram: Uploading via Cloudflare Worker (Official API)...");
+          const formData = new FormData();
+          formData.append("file", new Blob([fileData], { type: "video/mp4" }), fileName);
+          formData.append("caption", fullDescription);
+
+          const uploadRes = await fetch("https://nex-auth.asubilla115.workers.dev/upload/instagram", {
+            method: "POST",
+            body: formData,
+          });
+
+          const uploadData = await uploadRes.json() as any;
+          if (!uploadRes.ok || uploadData.error) {
+            return { success: false, errorMessage: uploadData.error || `Worker upload failed: HTTP ${uploadRes.status}` };
+          }
+          return { success: true, uploadedUrl: uploadData.uploadedUrl };
+        }
+
+        // Fallback to local Playwright browser automation
+        logger.info("Instagram: No official API token — falling back to local Playwright browser automation");
         return await uploadToInstagramPlaywright(
           filePath,
           fullDescription,
           { username: cred.label, password: cred.accessToken }
         );
-      case "facebook":
+      }
+
+      case "facebook": {
+        // If it's an official API token (has pageId/clientId and access token)
+        if (isOfficialToken && cred.clientId) {
+          logger.info("Facebook: Uploading directly via Cloudflare Worker (Official API)...");
+          const formData = new FormData();
+          formData.append("file", new Blob([fileData], { type: "video/mp4" }), fileName);
+          formData.append("title", title);
+          formData.append("description", fullDescription);
+          formData.append("pageId", cred.clientId);
+
+          const uploadRes = await fetch("https://nex-auth.asubilla115.workers.dev/upload/facebook", {
+            method: "POST",
+            body: formData,
+          });
+
+          const uploadData = await uploadRes.json() as any;
+          if (!uploadRes.ok || uploadData.error) {
+            return { success: false, errorMessage: uploadData.error || `Worker upload failed: HTTP ${uploadRes.status}` };
+          }
+          return { success: true, uploadedUrl: uploadData.uploadedUrl };
+        }
+
+        // Fallback to local Playwright browser automation
+        logger.info("Facebook: No official API token — falling back to local Playwright browser automation");
         return await uploadToFacebookPlaywright(
           filePath, title, fullDescription,
           { username: cred.label, password: cred.accessToken }
         );
+      }
+
       default:
         return { success: false, errorMessage: `Unsupported upload platform: ${platform}` };
     }
@@ -160,22 +238,47 @@ async function uploadToYouTube(
   clientSecret?: string
 ): Promise<UploadResult> {
   let token = accessToken;
+  let activeRefreshToken = refreshToken;
 
-  if (refreshToken && clientId && clientSecret) {
+  // If accessToken is a JSON string (Google tokens object), parse it
+  if (accessToken.trim().startsWith("{")) {
     try {
+      const parsed = JSON.parse(accessToken);
+      token = parsed.access_token || token;
+      if (parsed.refresh_token) {
+        activeRefreshToken = parsed.refresh_token;
+      }
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to parse YouTube accessToken JSON string");
+    }
+  }
+
+  // Fallback to environment variables if client credentials are not in the database
+  const activeClientId = clientId || process.env.GOOGLE_CLIENT_ID;
+  const activeClientSecret = clientSecret || process.env.GOOGLE_CLIENT_SECRET;
+
+  if (activeRefreshToken && activeClientId && activeClientSecret) {
+    try {
+      logger.info("YouTube: Refreshing access token...");
       const refreshRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          refresh_token: refreshToken,
+          client_id: activeClientId.trim(),
+          client_secret: activeClientSecret.trim(),
+          refresh_token: activeRefreshToken.trim(),
           grant_type: "refresh_token",
         }),
       });
       const refreshData = await refreshRes.json() as any;
-      if (refreshData.access_token) token = refreshData.access_token;
-    } catch {
+      if (refreshData.access_token) {
+        token = refreshData.access_token;
+        logger.info("YouTube: Access token refreshed successfully");
+      } else {
+        logger.warn({ refreshData }, "YouTube token refresh response did not contain access_token");
+      }
+    } catch (err: any) {
+      logger.error({ err }, "YouTube token refresh failed");
     }
   }
 

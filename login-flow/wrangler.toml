@@ -1,0 +1,29 @@
+name = "nex-auth"
+main = "src/index.ts"
+compatibility_date = "2024-07-25"
+workers_dev = true
+
+# KV Namespace for storing OAuth tokens
+[[kv_namespaces]]
+binding = "AUTH_TOKENS"
+id = "7abf4899345443e08a88e625d8c0e34a"
+preview_id = "d63dfa88463143738f14d0ca858730e8"
+
+[vars]
+FRONTEND_URL = "https://nexautomation.pages.dev"
+TIKTOK_CLIENT_KEY = "aw2227m189rnycrg"
+FACEBOOK_APP_ID = "3211203449064917"
+GOOGLE_CLIENT_ID = "1088029694480-phf5494fj7k65j4gr581qbeavd7p666i.apps.googleusercontent.com"
+INSTAGRAM_APP_ID = ""
+
+# Secrets (set via: wrangler secret put SECRET_NAME)
+# TIKTOK_CLIENT_SECRET
+# FACEBOOK_APP_SECRET
+# GOOGLE_CLIENT_SECRET
+# INSTAGRAM_APP_SECRET
+
+[[r2_buckets]]
+binding = "NEX_UPLOADS"
+bucket_name = "nex-uploads"
+preview_bucket_name = "nex-uploads-preview"
+
