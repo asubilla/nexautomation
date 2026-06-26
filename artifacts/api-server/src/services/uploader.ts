@@ -6,6 +6,7 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 import { uploadToTikTokPlaywright } from "./tiktok-playwright";
 import { uploadToInstagramPlaywright } from "./instagram-playwright";
 import { uploadToFacebookPlaywright } from "./facebook-playwright";
+import { uploadToTikTokAPI } from "./tiktok-api";
 
 export interface UploadResult {
   success: boolean;
@@ -110,6 +111,19 @@ export async function uploadVideo(
           cred.refreshToken ?? undefined, cred.clientId ?? undefined, cred.clientSecret ?? undefined
         );
       case "tiktok":
+        if (cred.refreshToken && cred.clientId && cred.clientSecret) {
+          logger.info("TikTok: Credentials contain client key/secret — using official TikTok API upload");
+          const apiResult = await uploadToTikTokAPI(
+            filePath, title, hashtags, description, cred.accessToken,
+            cred.refreshToken, cred.clientId, cred.clientSecret
+          );
+          if (apiResult.success) {
+            return { success: true, uploadedUrl: `https://www.tiktok.com/publish/${apiResult.publishId}` };
+          } else {
+            return { success: false, errorMessage: apiResult.errorMessage };
+          }
+        }
+        logger.info("TikTok: No client credentials — falling back to Playwright browser automation");
         return await uploadToTikTokPlaywright(
           filePath, title, hashtags,
           { username: cred.label, password: cred.accessToken },

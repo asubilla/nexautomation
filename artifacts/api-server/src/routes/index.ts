@@ -9,6 +9,7 @@ import settingsRouter from "./settings";
 import analyticsRouter from "./analytics";
 import clippingRouter from "./clipping";
 import authRouter from "./auth";
+import tiktokAuthRouter from "./tiktok-auth";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(settingsRouter);
 router.use(analyticsRouter);
 router.use(clippingRouter);
 router.use(authRouter);
+router.use(tiktokAuthRouter);
 
 export default router;

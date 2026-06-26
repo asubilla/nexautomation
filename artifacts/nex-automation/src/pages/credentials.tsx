@@ -55,13 +55,13 @@ const PLATFORM_INFO: Record<Platform, {
   tiktok: {
     label: "TikTok",
     color: "#010101",
-    method: "username_password",
-    description: "Browser automation se upload hoga.",
+    method: "oauth",
+    description: "Official Login Kit OAuth (recommended) ya browser automation.",
     usernameLabel: "TikTok Username / Email",
     usernamePlaceholder: "e.g. @myusername or email@gmail.com",
     passwordLabel: "TikTok Password",
     passwordPlaceholder: "Your TikTok password",
-    helpText: "UK geolocation automatically set hogi uploads ke liye.",
+    helpText: "Official API setup verified status support karta hai.",
   },
 };
 
@@ -73,17 +73,25 @@ export default function Credentials() {
   const [connectingPlatform, setConnectingPlatform] = useState<Platform | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  // Handle Google OAuth callback
+  // Handle Google / TikTok OAuth callback
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const success = params.get("success");
     const error = params.get("error");
+    const tiktokConnected = params.get("tiktok_connected");
+    const tiktokError = params.get("tiktok_error");
+
     if (success === "youtube") {
       toast({ title: "✅ YouTube Connected!", description: "Google account successfully linked." });
       queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
       window.history.replaceState({}, "", "/credentials");
-    } else if (error) {
-      toast({ title: "OAuth Failed", description: decodeURIComponent(error), variant: "destructive" });
+    } else if (tiktokConnected) {
+      toast({ title: "✅ TikTok Connected!", description: "TikTok account successfully linked via official OAuth." });
+      queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
+      window.history.replaceState({}, "", "/credentials");
+    } else if (error || tiktokError) {
+      const errVal = error || tiktokError || "Authorization failed";
+      toast({ title: "OAuth Failed", description: decodeURIComponent(errVal), variant: "destructive" });
       window.history.replaceState({}, "", "/credentials");
     }
   }, []);
@@ -151,11 +159,13 @@ export default function Credentials() {
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className={cn(
                         "text-[10px] font-mono px-2 py-0.5 rounded border uppercase tracking-wider",
-                        info.method === "oauth"
+                        platform === "youtube"
                           ? "text-blue-400 border-blue-500/20 bg-blue-500/10"
+                          : platform === "tiktok"
+                          ? "text-green-400 border-green-500/20 bg-green-500/10"
                           : "text-yellow-400 border-yellow-500/20 bg-yellow-500/10"
                       )}>
-                        {info.method === "oauth" ? "🔐 Google OAuth" : "🤖 Browser Automation"}
+                        {platform === "youtube" ? "🔐 Google OAuth" : platform === "tiktok" ? "🔐 API / OAuth" : "🤖 Browser Automation"}
                       </span>
                       {count > 0 && (
                         <span className="text-[10px] font-mono text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded uppercase">
@@ -317,68 +327,130 @@ function ConnectDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
-            <span className="text-yellow-400 text-xs font-mono">🤖 Browser Automation</span>
-            <span className="text-muted-foreground text-xs font-mono">— Playwright se login karke upload karega</span>
-          </div>
+        {platform === "tiktok" ? (
+          <div className="space-y-4 mt-2">
+            <Button
+              type="button"
+              className="w-full gap-2 text-xs bg-[#010101] text-white hover:bg-black/90 border border-zinc-800"
+              onClick={() => window.open("/api/auth/tiktok", "_blank")}
+            >
+              <svg className="w-4 h-4 flex-shrink-0 fill-current" viewBox="0 0 24 24">
+                <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.02-2.89-.35-4.2-1-.28-.15-.56-.32-.83-.51.02 2.6.01 5.2.02 7.8-.04 2.29-.67 4.67-2.33 6.27-1.66 1.65-4.11 2.45-6.43 2.44-2.32-.01-4.78-.79-6.43-2.45C.61 20.48-.03 18.09 0 15.79c-.04-2.29.6-4.76 2.25-6.42 1.66-1.66 4.1-2.47 6.42-2.45v4.09c-1.39-.02-2.88.42-3.84 1.45s-1.34 2.58-1.22 3.97c.11 1.39.9 2.77 2.07 3.51 1.17.75 2.71.87 4 .31 1.29-.56 2.07-1.87 2.1-3.27.02-3.66.01-7.32.02-10.98.01-1.31.02-2.61.02-3.92-.01-.01-.01-.01 0-.01z"/>
+              </svg>
+              Connect TikTok with OAuth
+            </Button>
 
-          <p className="text-xs text-muted-foreground font-mono">{info.description}</p>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-mono text-muted-foreground uppercase">
-              {info.usernameLabel}
-            </label>
-            <Input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder={info.usernamePlaceholder}
-              autoComplete="off"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-mono text-muted-foreground uppercase">
-              {info.passwordLabel}
-            </label>
-            <Input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={info.passwordPlaceholder}
-              type="password"
-              autoComplete="new-password"
-              required
-            />
-          </div>
-
-          {info.helpText && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
-              <Info className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
-              <p className="text-xs font-mono text-muted-foreground">{info.helpText}</p>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+              <div className="relative flex justify-center text-[10px] uppercase"><span className="bg-card px-2 text-muted-foreground font-mono">Or Use Credentials</span></div>
             </div>
-          )}
 
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
-            <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
-            <p className="text-xs font-mono text-muted-foreground">
-              Credentials verify honge. Agar captcha aaya to account automatically save hoga aur pehle upload pe test hoga.
-            </p>
-          </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono text-muted-foreground uppercase">
+                  {info.usernameLabel}
+                </label>
+                <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder={info.usernamePlaceholder}
+                  autoComplete="off"
+                  required
+                />
+              </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" type="button" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={createCredential.isPending} className="gap-2">
-              {createCredential.isPending ? (
-                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying &amp; Connecting...</>
-              ) : (
-                `Add ${info.label} Account`
-              )}
-            </Button>
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono text-muted-foreground uppercase">
+                  {info.passwordLabel}
+                </label>
+                <Input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={info.passwordPlaceholder}
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" type="button" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createCredential.isPending} className="gap-2">
+                  {createCredential.isPending ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying...</>
+                  ) : (
+                    `Add ${info.label} Account`
+                  )}
+                </Button>
+              </div>
+            </form>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+              <span className="text-yellow-400 text-xs font-mono">🤖 Browser Automation</span>
+              <span className="text-muted-foreground text-xs font-mono">— Playwright se login karke upload karega</span>
+            </div>
+
+            <p className="text-xs text-muted-foreground font-mono">{info.description}</p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-muted-foreground uppercase">
+                {info.usernameLabel}
+              </label>
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder={info.usernamePlaceholder}
+                autoComplete="off"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-muted-foreground uppercase">
+                {info.passwordLabel}
+              </label>
+              <Input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={info.passwordPlaceholder}
+                type="password"
+                autoComplete="new-password"
+                required
+              />
+            </div>
+
+            {info.helpText && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <Info className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+                <p className="text-xs font-mono text-muted-foreground">{info.helpText}</p>
+              </div>
+            )}
+
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
+              <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs font-mono text-muted-foreground">
+                Credentials verify honge. Agar captcha aaya to account automatically save hoga aur pehle upload pe test hoga.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" type="button" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createCredential.isPending} className="gap-2">
+                {createCredential.isPending ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying &amp; Connecting...</>
+                ) : (
+                  `Add ${info.label} Account`
+                )}
+              </Button>
+            </div>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

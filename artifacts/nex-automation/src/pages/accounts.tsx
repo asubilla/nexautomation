@@ -360,6 +360,7 @@ function AddAccountDialog() {
 
   // Need Google OAuth for YouTube upload
   const needsGoogleOAuth = (t: string) => t === "youtube";
+  const needsTikTokOAuth = (t: string) => t === "tiktok";
 
   return (
     <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
@@ -483,7 +484,7 @@ function AddAccountDialog() {
                   <div>
                     <p className="text-white font-semibold text-sm">{PLATFORM_LABELS[t as Platform] ?? t}</p>
                     <p className="text-xs text-muted-foreground font-mono">
-                      {needsGoogleOAuth(t) ? "Google OAuth se connect" : "Username + Password"}
+                      {needsGoogleOAuth(t) ? "Google OAuth se connect" : needsTikTokOAuth(t) ? "Official OAuth ya Credentials" : "Username + Password"}
                     </p>
                   </div>
                 </div>
@@ -508,13 +509,44 @@ function AddAccountDialog() {
                       Naya tab khulega — connect karke wapas aao
                     </p>
                   </div>
+                ) : needsTikTokOAuth(t) ? (
+                  <div className="space-y-3">
+                    <Button
+                      type="button"
+                      className="w-full gap-2 text-xs bg-[#010101] text-white hover:bg-black/90 border border-zinc-800"
+                      onClick={() => window.open("/api/auth/tiktok", "_blank")}
+                    >
+                      <svg className="w-4 h-4 flex-shrink-0 fill-current" viewBox="0 0 24 24">
+                        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.02-2.89-.35-4.2-1-.28-.15-.56-.32-.83-.51.02 2.6.01 5.2.02 7.8-.04 2.29-.67 4.67-2.33 6.27-1.66 1.65-4.11 2.45-6.43 2.44-2.32-.01-4.78-.79-6.43-2.45C.61 20.48-.03 18.09 0 15.79c-.04-2.29.6-4.76 2.25-6.42 1.66-1.66 4.1-2.47 6.42-2.45v4.09c-1.39-.02-2.88.42-3.84 1.45s-1.34 2.58-1.22 3.97c.11 1.39.9 2.77 2.07 3.51 1.17.75 2.71.87 4 .31 1.29-.56 2.07-1.87 2.1-3.27.02-3.66.01-7.32.02-10.98.01-1.31.02-2.61.02-3.92-.01-.01-.01-.01 0-.01z"/>
+                      </svg>
+                      Connect TikTok with OAuth
+                    </Button>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                      <div className="relative flex justify-center text-[10px] uppercase"><span className="bg-card px-2 text-muted-foreground font-mono">Or Legacy Browser Login</span></div>
+                    </div>
+                    <div className="space-y-2">
+                      <Input
+                        value={creds[t]?.loginId ?? ""}
+                        onChange={e => setCredField(t, "loginId", e.target.value)}
+                        placeholder="TikTok email ya @username"
+                        className="text-xs h-9"
+                      />
+                      <Input
+                        value={creds[t]?.password ?? ""}
+                        onChange={e => setCredField(t, "password", e.target.value)}
+                        placeholder="Password"
+                        type="password"
+                        className="text-xs h-9"
+                      />
+                    </div>
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     <Input
                       value={creds[t]?.loginId ?? ""}
                       onChange={e => setCredField(t, "loginId", e.target.value)}
                       placeholder={
-                        t === "tiktok" ? "TikTok email ya @username" :
                         t === "instagram" ? "Instagram username ya email" :
                         "Facebook email ya phone"
                       }
