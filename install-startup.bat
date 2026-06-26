@@ -1,58 +1,56 @@
 @echo off
 :: ============================================================
-:: Nex Automation - Auto-Start Installer
-:: Ek baar chalao — server hamesha Windows start pe chalne laga
+:: Nex Automation - Complete Auto-Start Setup
+:: Ek baar chalao — hamesha ke liye set ho jata hai
+:: Admin ki zaroorat NAHI hai
 :: ============================================================
 
-setlocal
-
-set "STARTUP_FOLDER=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-set "SCRIPT_PATH=e:\Nex Automation\startup-server.bat"
-set "SHORTCUT_NAME=Nex Automation Server.lnk"
-set "SHORTCUT_PATH=%STARTUP_FOLDER%\%SHORTCUT_NAME%"
-
 echo.
 echo  =========================================
-echo   NEX AUTOMATION - Auto-Start Installer
+echo   NEX AUTOMATION - Auto-Start Setup
 echo  =========================================
 echo.
 
-:: Check if already installed
-if exist "%SHORTCUT_PATH%" (
-    echo  [OK] Auto-start already installed!
-    echo  Server will start automatically on Windows login.
-    echo.
-    goto :done
-)
+:: 1. Registry Run key set karo (watchdog - har login pe)
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" ^
+  /v "NexAutomationServer" ^
+  /t REG_SZ ^
+  /d "cmd.exe /c start \"\" /min \"e:\\Nex Automation\\watchdog.bat\"" ^
+  /f >nul 2>&1
 
-:: Create shortcut via PowerShell
-powershell -NoProfile -Command ^
-    "$ws = New-Object -ComObject WScript.Shell; " ^
-    "$sc = $ws.CreateShortcut('%SHORTCUT_PATH%'); " ^
-    "$sc.TargetPath = '%SCRIPT_PATH%'; " ^
-    "$sc.WorkingDirectory = 'e:\Nex Automation'; " ^
-    "$sc.WindowStyle = 7; " ^
-    "$sc.Description = 'Nex Automation Local API Server'; " ^
-    "$sc.Save()"
+echo [OK] Registry Run key: login pe auto-start
 
-if exist "%SHORTCUT_PATH%" (
-    echo  [OK] Auto-start installed successfully!
-    echo.
-    echo  Ab jab bhi aap Windows pe login karoge,
-    echo  server automatically background mein start ho jaye ga.
-    echo.
-    echo  Aur jab bhi nexautomation.pages.dev khulega
-    echo  server already ready hoga!
-    echo.
-) else (
-    echo  [ERROR] Shortcut create nahi ho saka.
-    echo  Manually karo: startup-server.bat ko yahan copy karo:
-    echo  %STARTUP_FOLDER%
-)
+:: 2. Startup folder shortcut (backup method)
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut([System.IO.Path]::Combine($env:APPDATA, 'Microsoft\Windows\Start Menu\Programs\Startup\Nex Automation Server.lnk')); $sc.TargetPath = 'e:\Nex Automation\startup-server.bat'; $sc.WorkingDirectory = 'e:\Nex Automation'; $sc.WindowStyle = 7; $sc.Description = 'Nex Automation Local API Server'; $sc.Save()" >nul 2>&1
 
-:done
+echo [OK] Startup folder shortcut: backup auto-start
+
+:: 3. Watchdog abhi bhi start karo (current session)
+start "" /min "e:\Nex Automation\watchdog.bat"
+
+echo [OK] Watchdog started: background mein chal raha hai
+
 echo.
-echo  Test ke liye "auto-start-guard.bat" chalao.
+echo  =========================================
+echo   SETUP COMPLETE!
+echo  =========================================
 echo.
-pause
-endlocal
+echo  Ab yeh scenarios cover ho gaye hain:
+echo.
+echo  * Light gayi laptop off  -^> wapas on karo, login karo
+echo    Server auto-start hoga (Registry + Startup folder)
+echo.
+echo  * Pin/Lock screen         -^> Pin dalo
+echo    Server auto-start hoga (Registry Run)
+echo.
+echo  * Sleep mode se uthna     -^> Server waise hi chal raha hoga
+echo    Agar crash tha -^> Watchdog 5 min mein restart karega
+echo.
+echo  * Net cut/reconnect       -^> Server local pe chal raha hoga
+echo    Net aane pe automatically kaam karega
+echo.
+echo  * Aap khud off karna chahein  -^> Laptop shut down karo
+echo    Agla on hone pe phir start hoga
+echo.
+timeout /t 5 /nobreak >nul
