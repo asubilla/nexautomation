@@ -7,9 +7,9 @@ echo   NEX AUTOMATION - Starting...
 echo  ================================
 echo.
 
-:: Kill existing process on port 8081
-echo Clearing port 8081...
-for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr /R "\<8081\>" ^| findstr LISTENING') do (
+:: Kill existing process on port 80
+echo Clearing port 80...
+for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr /R "\<80\>" ^| findstr LISTENING') do (
     taskkill /PID %%a /F >nul 2>&1
 )
 timeout /t 1 /nobreak > nul
@@ -20,28 +20,28 @@ if exist "e:\Nex Automation\artifacts\nex-automation\dist\public\index.html" (
 ) else (
     echo Frontend: building for first time, please wait...
     cd /d "e:\Nex Automation\artifacts\nex-automation"
-    set PORT=8081
+    set PORT=80
     set BASE_PATH=/
-    set API_PORT=8081
+    set API_PORT=80
     set NODE_ENV=production
     call npx --no vite build --config vite.config.ts
 )
 
 :: Start server in a new window that stays open
 echo Starting server...
-start "Nex Automation Server (keep open)" cmd /k "title Nex Automation Server && cd /d "e:\Nex Automation\artifacts\api-server" && echo. && echo  Server running at http://localhost:8081 && echo  Do NOT close this window! && echo. && node --env-file=.env migrate.mjs && node --env-file=.env --enable-source-maps ./dist/index.mjs"
+start "Nex Automation Server (keep open)" cmd /k "title Nex Automation Server && cd /d "e:\Nex Automation\artifacts\api-server" && echo. && echo  Server running at http://nexautomation.pages.dev && echo  Do NOT close this window! && echo. && node --env-file=.env migrate.mjs && node --env-file=.env --enable-source-maps ./dist/index.mjs"
 
 
 :: Wait for server
 timeout /t 5 /nobreak > nul
 
 :: Open browser
-start http://localhost:8081
+start http://nexautomation.pages.dev
 
 echo.
 echo  ================================
 echo   Server started!
-echo   URL: http://localhost:8081
+echo   URL: http://nexautomation.pages.dev
 echo   
 echo   Server window ko band mat karo.
 echo   Yeh launcher window band ho sakti hai.

@@ -40,10 +40,11 @@ router.get("/auth/youtube", (_req, res): void => {
 // GET /api/auth/youtube/callback — Google redirects here after login
 router.get("/auth/youtube/callback", async (req, res): Promise<void> => {
   const { code, error } = req.query as { code?: string; error?: string };
+  const host = req.get("host") ? `${req.protocol}://${req.get("host")}` : "http://localhost:8081";
 
   if (error) {
     logger.warn({ error }, "YouTube OAuth denied");
-    res.redirect(`http://localhost:8081/credentials?error=${encodeURIComponent(error as string)}`);
+    res.redirect(`${host}/credentials?error=${encodeURIComponent(error as string)}`);
     return;
   }
 
@@ -86,10 +87,10 @@ router.get("/auth/youtube/callback", async (req, res): Promise<void> => {
     }
 
     logger.info({ label }, "YouTube account connected via OAuth");
-    res.redirect("http://localhost:8081/clipping?youtube_connected=true");
+    res.redirect(`${host}/clipping?youtube_connected=true`);
   } catch (err: any) {
     logger.error({ err }, "YouTube OAuth callback error");
-    res.redirect(`http://localhost:8081/clipping?youtube_error=${encodeURIComponent(err.message)}`);
+    res.redirect(`${host}/clipping?youtube_error=${encodeURIComponent(err.message)}`);
   }
 });
 
