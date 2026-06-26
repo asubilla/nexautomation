@@ -45,16 +45,10 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-border space-y-3">
+      <div className="p-4 border-t border-border">
         <div className="flex items-center gap-3 px-3 py-2 text-sm text-muted-foreground bg-muted/50 rounded-md">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
           <span>System Online</span>
-        </div>
-        <div className="px-3 flex flex-wrap gap-x-3 gap-y-1">
-          <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary transition-colors">Privacy Policy</a>
-          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary transition-colors">Terms</a>
-          <a href="/data-deletion.html" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary transition-colors">Data Deletion</a>
-          <a href="/contact.html" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary transition-colors">Contact</a>
         </div>
       </div>
     </div>
