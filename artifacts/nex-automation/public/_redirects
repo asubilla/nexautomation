@@ -1,0 +1,14 @@
+# Static compliance pages — serve directly
+/privacy-policy.html /privacy-policy.html 200
+/terms.html /terms.html 200
+/data-deletion.html /data-deletion.html 200
+/contact.html /contact.html 200
+/compliance.html /compliance.html 200
+/tiktok-developers-site-verification=5Sh8TdsV6ujYrmTuiIftAOi2qN3KPX1q /tiktok-developers-site-verification=5Sh8TdsV6ujYrmTuiIftAOi2qN3KPX1q 200
+/tiktok-developers-site-verification=5Sh8TdsV6ujYrmTuiIftAOi2qN3KPX1q.html /tiktok-developers-site-verification=5Sh8TdsV6ujYrmTuiIftAOi2qN3KPX1q.html 200
+/logo.png /logo.png 200
+/favicon.png /favicon.png 200
+/styles.css /styles.css 200
+
+# All other routes → React SPA
+/* /index.html 200
