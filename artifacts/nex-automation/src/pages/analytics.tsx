@@ -1,13 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Download, Upload, CheckCircle2, XCircle, Clock, HardDrive, TrendingUp, BarChart2, Activity, Video } from "lucide-react";
+import { useState } from "react";
+import {
+  ArrowLeft, Download, Upload, CheckCircle2, XCircle, Clock,
+  HardDrive, TrendingUp, BarChart2, Activity, Video, ChevronDown,
+  ChevronUp, MapPin, Hash, Type, ExternalLink, Calendar,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { formatDistanceToNow, format } from "date-fns";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -18,32 +23,54 @@ async function fetchAccountAnalytics(id: string) {
   return res.json() as Promise<AccountAnalytics>;
 }
 
+interface UploadDetail {
+  downloadJobId: number;
+  platform: string;
+  status: string;
+  aiTitle: string | null;
+  aiDescription: string | null;
+  aiHashtags: string | null;
+  aiTags: string | null;
+  aiLocation: string | null;
+  scheduledAt: string | null;
+  uploadedUrl: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+interface VideoDetail {
+  id: number;
+  videoId: string | null;
+  videoUrl: string;
+  originalTitle: string | null;
+  thumbnailUrl: string | null;
+  status: string;
+  fileSizeBytes: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  uploads: UploadDetail[];
+}
+
 interface AccountAnalytics {
   account: {
     id: number; platform: string; username: string; url: string;
-    enabled: boolean; uploadTargets: string[]; totalDownloaded: number;
+    enabled: boolean; uploadTargets: string[];
+    uploadCredentials: { platform: string; username: string; isValid: boolean }[];
+    totalDownloaded: number;
     lastCheckedAt: string | null; lastVideoAt: string | null; createdAt: string;
   };
   downloads: { total: number; done: number; failed: number; downloading: number; pending: number; successRate: number };
-  uploads: { total: number; done: number; failed: number; pending: number; successRate: number };
+  uploads: { total: number; done: number; failed: number; pending: number; scheduled: number; successRate: number };
   uploadsByPlatform: { platform: string; total: number; done: number; failed: number }[];
   storage: { totalMb: number; totalGb: number };
   dailyStats: { date: string; downloads: number; uploads: number; uploadsDone: number; uploadsFailed: number }[];
   recentActivity: { id: number; type: string; platform: string; username: string; message: string; createdAt: string }[];
-  recentVideos: {
-    id: number; videoId: string | null; videoUrl: string; originalTitle: string | null;
-    thumbnailUrl: string | null; status: string; fileSizeBytes: number | null;
-    errorMessage: string | null; createdAt: string; completedAt: string | null;
-    uploads: { platform: string; status: string; aiTitle: string | null; uploadedUrl: string | null; completedAt: string | null }[];
-  }[];
+  recentVideos: VideoDetail[];
 }
 
 const PIE_COLORS = ["#00ffc8", "#7c3aed", "#2563eb", "#f59e0b", "#ef4444"];
 
-const STATUS_COLOR: Record<string, string> = {
-  done: "text-green-400", failed: "text-red-400",
-  downloading: "text-yellow-400", uploading: "text-blue-400", pending: "text-muted-foreground",
-};
 const STATUS_BG: Record<string, string> = {
   done: "bg-green-400/10 text-green-400 border-green-400/20",
   failed: "bg-red-400/10 text-red-400 border-red-400/20",
@@ -82,6 +109,235 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     </div>
   );
 };
+
+function VideoCard({ video, sourcePlatform, sourceUsername }: {
+  video: VideoDetail;
+  sourcePlatform: string;
+  sourceUsername: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const fileSize = video.fileSizeBytes
+    ? video.fileSizeBytes > 1024 * 1024
+      ? `${(video.fileSizeBytes / 1024 / 1024).toFixed(1)} MB`
+      : `${(video.fileSizeBytes / 1024).toFixed(0)} KB`
+    : null;
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Video Header */}
+      <div className="p-4 flex items-start gap-4">
+        {/* Thumbnail */}
+        <div className="w-24 h-16 bg-white/5 rounded-lg overflow-hidden flex-shrink-0 border border-border flex items-center justify-center">
+          {video.thumbnailUrl ? (
+            <img src={video.thumbnailUrl} alt="Thumbnail" className="w-full h-full object-cover" />
+          ) : (
+            <Video className="w-6 h-6 text-muted-foreground" />
+          )}
+        </div>
+
+        {/* Title + Meta */}
+        <div className="flex-1 min-w-0">
+          <a
+            href={video.videoUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-white font-semibold text-sm hover:text-primary transition-colors line-clamp-2 flex items-start gap-1"
+          >
+            {video.originalTitle ?? video.videoId ?? "Unknown Video"}
+            <ExternalLink className="w-3 h-3 shrink-0 mt-0.5 opacity-50" />
+          </a>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs font-mono text-muted-foreground">
+            {/* Source */}
+            <span className="flex items-center gap-1">
+              <PlatformIcon platform={sourcePlatform} className="w-3.5 h-3.5" />
+              <span className="text-white">@{sourceUsername}</span>
+            </span>
+
+            {/* Download time */}
+            <span className="flex items-center gap-1">
+              <Download className="w-3 h-3" />
+              <span>Downloaded: <span className="text-white">{format(new Date(video.createdAt), "MMM d, HH:mm")}</span></span>
+            </span>
+
+            {/* Completed */}
+            {video.completedAt && (
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-green-400" />
+                <span>Done: <span className="text-white">{format(new Date(video.completedAt), "MMM d, HH:mm")}</span></span>
+              </span>
+            )}
+
+            {/* File size */}
+            {fileSize && (
+              <span className="flex items-center gap-1">
+                <HardDrive className="w-3 h-3" />
+                <span className="text-white">{fileSize}</span>
+              </span>
+            )}
+          </div>
+
+          {/* Error */}
+          {video.errorMessage && (
+            <p className="text-red-400 text-xs font-mono mt-1 line-clamp-1">{video.errorMessage}</p>
+          )}
+        </div>
+
+        {/* Status + Expand */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase font-mono ${STATUS_BG[video.status] ?? STATUS_BG.pending}`}>
+            {video.status}
+          </span>
+          {video.uploads.length > 0 && (
+            <button
+              onClick={() => setExpanded(e => !e)}
+              className="text-muted-foreground hover:text-white transition-colors p-1"
+            >
+              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Upload Summary (always visible) */}
+      {video.uploads.length > 0 && (
+        <div className="px-4 pb-3 flex items-center gap-2 flex-wrap border-t border-border/50 pt-3">
+          <span className="text-xs font-mono text-muted-foreground">Uploaded to:</span>
+          {video.uploads.map((u, i) => (
+            <div key={i} className="flex items-center gap-1">
+              <PlatformIcon platform={u.platform} className="w-4 h-4" />
+              {u.status === "done" ? (
+                <CheckCircle2 className="w-3 h-3 text-green-400" />
+              ) : u.status === "failed" ? (
+                <XCircle className="w-3 h-3 text-red-400" />
+              ) : (
+                <Clock className="w-3 h-3 text-yellow-400" />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Expanded Upload Details */}
+      {expanded && video.uploads.length > 0 && (
+        <div className="border-t border-border">
+          {video.uploads.map((u, i) => (
+            <div key={i} className={`p-4 space-y-3 ${i > 0 ? "border-t border-border/50" : ""}`}>
+              {/* Upload Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <PlatformIcon platform={u.platform} className="w-5 h-5" />
+                  <span className="text-white font-semibold text-sm capitalize">{u.platform}</span>
+                  <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase font-mono ${STATUS_BG[u.status] ?? STATUS_BG.pending}`}>
+                    {u.status}
+                  </span>
+                </div>
+                {u.uploadedUrl && (
+                  <a href={u.uploadedUrl} target="_blank" rel="noreferrer" className="text-primary text-xs font-mono flex items-center gap-1 hover:underline">
+                    View Post <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+
+              {/* Upload Timing */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-mono text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  Queued: <span className="text-white ml-1">{format(new Date(u.createdAt), "MMM d, HH:mm")}</span>
+                </span>
+                {u.completedAt && (
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-green-400" />
+                    Uploaded: <span className="text-white ml-1">{format(new Date(u.completedAt), "MMM d, HH:mm")}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* AI Title */}
+              {u.aiTitle && (
+                <div className="flex items-start gap-2 text-xs">
+                  <Type className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-muted-foreground font-mono">Title: </span>
+                    <span className="text-white font-semibold">{u.aiTitle}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* AI Description */}
+              {u.aiDescription && (
+                <div className="flex items-start gap-2 text-xs">
+                  <Activity className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-muted-foreground font-mono">Description: </span>
+                    <span className="text-white/80">{u.aiDescription}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Scheduled At */}
+              {u.scheduledAt && u.status === "pending" && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Calendar className="w-3 h-3 text-yellow-400 shrink-0" />
+                  <span className="text-muted-foreground font-mono">Scheduled: </span>
+                  <span className="text-yellow-400 font-mono">
+                    {format(new Date(u.scheduledAt), "MMM d, HH:mm")}
+                    {" "}({formatDistanceToNow(new Date(u.scheduledAt), { addSuffix: true })})
+                  </span>
+                </div>
+              )}
+
+              {/* Location */}
+              {u.aiLocation && (
+                <div className="flex items-center gap-2 text-xs">
+                  <MapPin className="w-3 h-3 text-primary shrink-0" />
+                  <span className="text-muted-foreground font-mono">Location: </span>
+                  <span className="text-white">{u.aiLocation}</span>
+                </div>
+              )}
+
+              {/* Tags */}
+              {u.aiTags && (() => {
+                try {
+                  const tags: string[] = JSON.parse(u.aiTags);
+                  if (tags.length === 0) return null;
+                  return (
+                    <div className="flex items-start gap-2 text-xs">
+                      <Hash className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                      <div className="flex flex-wrap gap-1">
+                        {tags.map((tag, ti) => (
+                          <span key={ti} className="bg-white/5 border border-border rounded px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {/* Hashtags */}
+              {u.aiHashtags && (
+                <div className="flex items-start gap-2 text-xs">
+                  <Hash className="w-3 h-3 text-primary/50 mt-0.5 shrink-0" />
+                  <div className="flex flex-wrap gap-1">
+                    {u.aiHashtags.split(/\s+/).filter(h => h.startsWith("#")).slice(0, 8).map((tag, ti) => (
+                      <span key={ti} className="text-primary/70 font-mono">{tag}</span>
+                    ))}
+                    {u.aiHashtags.split(/\s+/).filter(h => h.startsWith("#")).length > 8 && (
+                      <span className="text-muted-foreground font-mono">+{u.aiHashtags.split(/\s+/).filter(h => h.startsWith("#")).length - 8} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Analytics() {
   const { id } = useParams<{ id: string }>();
@@ -155,16 +411,31 @@ export default function Analytics() {
                   {account.lastCheckedAt && (
                     <>
                       <span>•</span>
-                      <span>Checked {formatDistanceToNow(new Date(account.lastCheckedAt), { addSuffix: true })}</span>
+                      <span>Last checked {formatDistanceToNow(new Date(account.lastCheckedAt), { addSuffix: true })}</span>
                     </>
                   )}
                 </div>
                 {account.uploadTargets.length > 0 && (
-                  <div className="flex items-center gap-1 mt-2">
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <span className="text-xs text-muted-foreground font-mono">Uploading to:</span>
-                    {account.uploadTargets.map(t => (
-                      <PlatformIcon key={t} platform={t} className="w-5 h-5 ml-1" />
-                    ))}
+                    {account.uploadTargets.map(t => {
+                      const cred = account.uploadCredentials?.find(c => c.platform === t);
+                      return (
+                        <div key={t} className="flex items-center gap-1.5 bg-white/5 border border-border rounded-md px-2 py-1">
+                          <PlatformIcon platform={t} className="w-4 h-4" />
+                          <span className="text-xs font-mono text-white capitalize">{t}</span>
+                          {cred && (
+                            <span className="text-xs font-mono text-primary">@{cred.username}</span>
+                          )}
+                          {cred && !cred.isValid && (
+                            <span className="text-xs text-red-400">⚠</span>
+                          )}
+                          {!cred && (
+                            <span className="text-xs text-amber-400 font-mono">no creds</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -184,19 +455,19 @@ export default function Analytics() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Download} label="Total Downloads" value={downloads.total}
-          sub={`${downloads.done} successful • ${downloads.failed} failed`} />
+          sub={`${downloads.done} done • ${downloads.failed} failed`} />
         <StatCard icon={Upload} label="Total Uploads" value={uploads.total}
-          sub={`${uploads.done} successful • ${uploads.failed} failed`} color="text-violet-400" />
-        <StatCard icon={TrendingUp} label="Download Rate" value={`${downloads.successRate}%`}
+          sub={`${uploads.done} done • ${uploads.failed} failed`} color="text-violet-400" />
+        <StatCard icon={Clock} label="Scheduled" value={uploads.scheduled}
+          sub="pending upload slots"
+          color="text-yellow-400" />
+        <StatCard icon={TrendingUp} label="Success Rate" value={`${downloads.successRate}%`}
           sub={`${uploads.successRate}% upload success`}
           color={downloads.successRate >= 80 ? "text-green-400" : downloads.successRate >= 50 ? "text-yellow-400" : "text-red-400"} />
-        <StatCard icon={HardDrive} label="Data Downloaded" value={storage.totalMb < 1024 ? `${storage.totalMb} MB` : `${storage.totalGb} GB`}
-          sub="from successful downloads" color="text-blue-400" />
       </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Daily Activity Chart */}
         <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
           <div className="flex items-center gap-2 mb-6">
             <BarChart2 className="w-4 h-4 text-primary" />
@@ -204,7 +475,7 @@ export default function Analytics() {
           </div>
           {chartData.every(d => d.Downloads === 0 && d["Uploads Done"] === 0) ? (
             <div className="h-48 flex items-center justify-center text-muted-foreground font-mono text-sm">
-              No activity yet — trigger a check to start
+              No activity yet
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
@@ -222,25 +493,19 @@ export default function Analytics() {
           )}
         </div>
 
-        {/* Upload Platform Breakdown */}
         <div className="bg-card border border-border rounded-xl p-6">
           <div className="flex items-center gap-2 mb-6">
             <Activity className="w-4 h-4 text-primary" />
             <h2 className="font-bold text-white">Upload Platforms</h2>
           </div>
           {pieData.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-muted-foreground font-mono text-sm text-center">
-              No uploads yet
-            </div>
+            <div className="h-48 flex items-center justify-center text-muted-foreground font-mono text-sm text-center">No uploads yet</div>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={160}>
                 <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" outerRadius={65} innerRadius={35}
-                    dataKey="value" paddingAngle={3}>
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
+                  <Pie data={pieData} cx="50%" cy="50%" outerRadius={65} innerRadius={35} dataKey="value" paddingAngle={3}>
+                    {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
                 </PieChart>
@@ -261,12 +526,11 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* Download Status Breakdown + Recent Activity */}
+      {/* Status + Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Download Status */}
         <div className="bg-card border border-border rounded-xl p-6">
           <h2 className="font-bold text-white mb-4 flex items-center gap-2">
-            <Download className="w-4 h-4 text-primary" /> Download Status Breakdown
+            <Download className="w-4 h-4 text-primary" /> Download Status
           </h2>
           {statusBreakdown.length === 0 ? (
             <div className="text-muted-foreground font-mono text-sm py-8 text-center">No downloads yet</div>
@@ -279,13 +543,8 @@ export default function Analytics() {
                     <span className="text-white font-bold">{s.value}</span>
                   </div>
                   <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${downloads.total > 0 ? (s.value / downloads.total) * 100 : 0}%`,
-                        background: s.fill,
-                      }}
-                    />
+                    <div className="h-full rounded-full transition-all"
+                      style={{ width: `${downloads.total > 0 ? (s.value / downloads.total) * 100 : 0}%`, background: s.fill }} />
                   </div>
                 </div>
               ))}
@@ -299,7 +558,6 @@ export default function Analytics() {
           )}
         </div>
 
-        {/* Recent Activity */}
         <div className="bg-card border border-border rounded-xl p-6">
           <h2 className="font-bold text-white mb-4 flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary" /> Recent Activity
@@ -324,76 +582,30 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* Recent Videos Table */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="font-bold text-white mb-4 flex items-center gap-2">
-          <Video className="w-4 h-4 text-primary" /> Recent Videos ({recentVideos.length})
+      {/* Video Cards */}
+      <div className="space-y-4">
+        <h2 className="font-bold text-white text-xl flex items-center gap-2">
+          <Video className="w-5 h-5 text-primary" />
+          Videos ({recentVideos.length})
+          <span className="text-xs font-mono text-muted-foreground font-normal ml-2">
+            Click arrow to see upload details
+          </span>
         </h2>
+
         {recentVideos.length === 0 ? (
-          <div className="text-muted-foreground font-mono text-sm py-8 text-center">
+          <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground font-mono text-sm">
             No videos yet — trigger a check to start downloading
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs font-mono">
-              <thead>
-                <tr className="text-muted-foreground border-b border-border">
-                  <th className="text-left pb-3 pr-4">Title</th>
-                  <th className="text-left pb-3 pr-4">Status</th>
-                  <th className="text-left pb-3 pr-4">Size</th>
-                  <th className="text-left pb-3 pr-4">Uploads</th>
-                  <th className="text-left pb-3">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {recentVideos.map(v => (
-                  <tr key={v.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-3 pr-4 max-w-[220px]">
-                      <a href={v.videoUrl} target="_blank" rel="noreferrer"
-                        className="text-white hover:text-primary transition-colors truncate block">
-                        {v.originalTitle ?? v.videoId ?? "Unknown"}
-                      </a>
-                      {v.errorMessage && (
-                        <p className="text-red-400 text-[10px] mt-0.5 truncate">{v.errorMessage}</p>
-                      )}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase ${STATUS_BG[v.status] ?? STATUS_BG.pending}`}>
-                        {v.status}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4 text-muted-foreground">
-                      {v.fileSizeBytes
-                        ? v.fileSizeBytes > 1024 * 1024
-                          ? `${(v.fileSizeBytes / 1024 / 1024).toFixed(1)} MB`
-                          : `${(v.fileSizeBytes / 1024).toFixed(0)} KB`
-                        : "—"}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <div className="flex gap-1 flex-wrap">
-                        {v.uploads.length === 0 ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : v.uploads.map((u, i) => (
-                          <div key={i} className="flex items-center gap-1">
-                            <PlatformIcon platform={u.platform} className="w-4 h-4" />
-                            {u.status === "done" ? (
-                              <CheckCircle2 className="w-3 h-3 text-green-400" />
-                            ) : u.status === "failed" ? (
-                              <XCircle className="w-3 h-3 text-red-400" />
-                            ) : (
-                              <Clock className="w-3 h-3 text-yellow-400" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-3 text-muted-foreground">
-                      {formatDistanceToNow(new Date(v.createdAt), { addSuffix: true })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {recentVideos.map(v => (
+              <VideoCard
+                key={v.id}
+                video={v}
+                sourcePlatform={account.platform}
+                sourceUsername={account.username}
+              />
+            ))}
           </div>
         )}
       </div>

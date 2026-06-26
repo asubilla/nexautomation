@@ -88,7 +88,7 @@ export default function Dashboard() {
           <div className="bg-card border border-border rounded-lg overflow-hidden">
             {activityLoading ? (
               <div className="p-8 text-center text-muted-foreground font-mono text-sm">Loading activity...</div>
-            ) : activity && activity.length > 0 ? (
+            ) : Array.isArray(activity) && activity.length > 0 ? (
               <div className="divide-y divide-border">
                 {activity.map((item) => (
                   <div key={item.id} className="p-4 flex items-start gap-4 hover:bg-white/[0.02] transition-colors">

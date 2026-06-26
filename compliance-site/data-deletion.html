@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Deletion – Nex Automation</title>
+  <meta name="description" content="Request deletion of your data from Nex Automation. Required for Meta (Facebook/Instagram) API compliance." />
+  <link rel="canonical" href="https://nex-automation.pages.dev/data-deletion.html" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><text y='22' x='6' font-size='20'>⚡</text></svg>" />
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+  <div class="page-wrapper">
+
+    <nav>
+      <div class="nav-inner">
+        <a href="index.html" class="logo">
+          <div class="logo-icon">⚡</div>
+          Nex Automation
+        </a>
+        <div class="nav-links">
+          <a href="index.html">Home</a>
+          <a href="privacy-policy.html">Privacy Policy</a>
+          <a href="terms.html">Terms of Service</a>
+          <a href="data-deletion.html" class="active">Data Deletion</a>
+          <a href="contact.html">Contact Us</a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="section-header">
+      <div class="container">
+        <div class="hero-badge">🗑️ Your Rights</div>
+        <h1>Data Deletion Request</h1>
+        <p>Request complete removal of all your data from our systems</p>
+        <div class="updated-date">📅 Last updated: June 2025</div>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="content-card">
+
+        <div class="info-box">
+          <div class="info-box-icon">ℹ️</div>
+          <p>
+            This page is provided in compliance with <strong>Meta's Platform Terms</strong> (Facebook &amp; Instagram) and our <a href="privacy-policy.html">Privacy Policy</a>. You have the right to request deletion of all data associated with your account at any time.
+          </p>
+        </div>
+
+        <h2>What Data We Hold</h2>
+        <table>
+          <thead>
+            <tr><th>Data Type</th><th>Description</th><th>Status After Deletion</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Platform Credentials</td>
+              <td>Encrypted username/password for TikTok, Instagram, Facebook</td>
+              <td><span class="tag tag-green">Permanently Deleted</span></td>
+            </tr>
+            <tr>
+              <td>Upload History</td>
+              <td>Records of videos uploaded and to which platforms</td>
+              <td><span class="tag tag-green">Permanently Deleted</span></td>
+            </tr>
+            <tr>
+              <td>Browser Sessions</td>
+              <td>Saved login sessions (cookies) for automation</td>
+              <td><span class="tag tag-green">Permanently Deleted</span></td>
+            </tr>
+            <tr>
+              <td>Server Logs</td>
+              <td>Access logs containing your IP address</td>
+              <td><span class="tag tag-blue">Purged within 30 days</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>How to Request Deletion</h2>
+        <ol class="step-list">
+          <li>
+            <div>
+              <strong>Option 1 – Via the App (Instant)</strong>
+              <p>Log into Nex Automation → Credentials page → Click "Delete" on each connected account. All credential data is removed immediately from the database.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Option 2 – Email Request</strong>
+              <p>Send an email to <a href="mailto:asubilla115@gmail.com">asubilla115@gmail.com</a> with subject: <em>"Data Deletion Request"</em>. Include the email or username associated with your account. We will process within <strong>72 hours</strong>.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Option 3 – Contact Form</strong>
+              <p>Fill out the <a href="contact.html">Contact Us form</a> below, selecting "Data Deletion Request" as the subject. We will confirm deletion via email.</p>
+            </div>
+          </li>
+        </ol>
+
+        <h2>Facebook / Instagram Data Deletion (Meta)</h2>
+        <p>If you connected your Facebook or Instagram account to Nex Automation and wish to revoke access and delete all associated data:</p>
+        <ol class="step-list">
+          <li>
+            <div>
+              <strong>Remove App Access from Facebook</strong>
+              <p>Go to <a href="https://www.facebook.com/settings?tab=applications" target="_blank">Facebook Settings → Apps and Websites</a> → Find "Nex Automation" → Click "Remove".</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Submit Deletion Request Here</strong>
+              <p>After removing app access, submit a deletion request using any option above. We will delete all associated data from our systems within 72 hours.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Confirmation</strong>
+              <p>You will receive an email confirmation when deletion is complete. No data will be retained after this point.</p>
+            </div>
+          </li>
+        </ol>
+
+        <h2>Quick Deletion Request</h2>
+        <form id="deletionForm" onsubmit="handleDeletion(event)" style="margin-top: 16px;">
+          <div class="form-group">
+            <label for="del-email">Email Address or Username *</label>
+            <input type="email" id="del-email" placeholder="your@email.com" required />
+          </div>
+          <div class="form-group">
+            <label for="del-platform">Platform (optional)</label>
+            <select id="del-platform">
+              <option value="">All platforms (delete everything)</option>
+              <option value="instagram">Instagram only</option>
+              <option value="facebook">Facebook only</option>
+              <option value="tiktok">TikTok only</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="del-reason">Reason (optional)</label>
+            <input type="text" id="del-reason" placeholder="e.g. No longer using the service" />
+          </div>
+          <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+            🗑️ Submit Deletion Request
+          </button>
+          <div class="success-msg" id="deletionSuccess">
+            ✅ Deletion request received. We will process it within 72 hours and send confirmation to your email.
+          </div>
+        </form>
+
+        <h2>Retention After Deletion</h2>
+        <p>After a deletion request is processed:</p>
+        <ul>
+          <li>All credentials are immediately removed from our encrypted database</li>
+          <li>Upload history is permanently deleted</li>
+          <li>Session cookies are cleared</li>
+          <li>Server access logs are purged within 30 days (standard log rotation)</li>
+          <li>No backups containing your data are retained</li>
+        </ul>
+
+      </div>
+    </div>
+
+    <footer>
+      <div class="container">
+        <div class="footer-links">
+          <a href="index.html">Home</a>
+          <a href="privacy-policy.html">Privacy Policy</a>
+          <a href="terms.html">Terms of Service</a>
+          <a href="data-deletion.html">Data Deletion</a>
+          <a href="contact.html">Contact Us</a>
+        </div>
+        <p>© 2025 Nex Automation. All rights reserved.</p>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    function handleDeletion(e) {
+      e.preventDefault();
+      const email = document.getElementById('del-email').value;
+      const platform = document.getElementById('del-platform').value;
+      const reason = document.getElementById('del-reason').value;
+
+      // Build mailto link as fallback
+      const subject = encodeURIComponent('Data Deletion Request');
+      const body = encodeURIComponent(
+        `Email/Username: ${email}\nPlatform: ${platform || 'All'}\nReason: ${reason || 'Not provided'}`
+      );
+      window.location.href = `mailto:asubilla115@gmail.com?subject=${subject}&body=${body}`;
+
+      document.getElementById('deletionSuccess').style.display = 'flex';
+      e.target.reset();
+    }
+  </script>
+</body>
+</html>

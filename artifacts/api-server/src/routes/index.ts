@@ -7,6 +7,8 @@ import dashboardRouter from "./dashboard";
 import aiRouter from "./ai";
 import settingsRouter from "./settings";
 import analyticsRouter from "./analytics";
+import clippingRouter from "./clipping";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
@@ -18,5 +20,7 @@ router.use(dashboardRouter);
 router.use(aiRouter);
 router.use(settingsRouter);
 router.use(analyticsRouter);
+router.use(clippingRouter);
+router.use(authRouter);
 
 export default router;

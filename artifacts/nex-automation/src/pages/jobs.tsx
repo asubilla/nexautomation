@@ -41,7 +41,7 @@ function DownloadJobsList() {
   const { data: jobs, isLoading } = useListDownloadJobs();
 
   if (isLoading) return <div className="p-12 text-center text-muted-foreground font-mono">Loading download jobs...</div>;
-  if (!jobs?.length) return <div className="p-12 text-center text-muted-foreground font-mono">No download jobs found.</div>;
+  if (!Array.isArray(jobs) || !jobs.length) return <div className="p-12 text-center text-muted-foreground font-mono">No download jobs found.</div>;
 
   return (
     <div className="divide-y divide-border">
@@ -100,7 +100,7 @@ function UploadJobsList() {
   };
 
   if (isLoading) return <div className="p-12 text-center text-muted-foreground font-mono">Loading upload jobs...</div>;
-  if (!jobs?.length) return <div className="p-12 text-center text-muted-foreground font-mono">No upload jobs found.</div>;
+  if (!Array.isArray(jobs) || !jobs.length) return <div className="p-12 text-center text-muted-foreground font-mono">No upload jobs found.</div>;
 
   return (
     <div className="divide-y divide-border">
@@ -117,11 +117,22 @@ function UploadJobsList() {
               <p className="text-xs text-muted-foreground font-mono mt-1 flex items-center gap-3">
                 <span>Target: <span className="text-white capitalize">{job.targetPlatform}</span></span>
                 <span>•</span>
-                <span>Started: <span className="text-white">{formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}</span></span>
+                <span>Created: <span className="text-white">{formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}</span></span>
+                {(job as any).scheduledAt && job.status === "pending" && (
+                  <>
+                    <span>•</span>
+                    <span className="text-yellow-400">
+                      Scheduled: <span className="text-white">{new Date((job as any).scheduledAt).toLocaleString()}</span>
+                    </span>
+                  </>
+                )}
                 {job.uploadedUrl && (
-                  <a href={job.uploadedUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-primary transition-colors">
-                    <LinkIcon className="w-3 h-3" /> Live Link
-                  </a>
+                  <>
+                    <span>•</span>
+                    <a href={job.uploadedUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-primary transition-colors">
+                      <LinkIcon className="w-3 h-3" /> Live Link
+                    </a>
+                  </>
                 )}
               </p>
               {job.aiHashtags && (

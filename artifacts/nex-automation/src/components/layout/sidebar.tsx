@@ -1,4 +1,4 @@
-import { Activity, LayoutDashboard, Settings, Users, Youtube, CheckCircle2, ListTree } from "lucide-react";
+import { Activity, LayoutDashboard, Settings, Users, CheckCircle2, ListTree, Scissors } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -6,6 +6,7 @@ const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/accounts", label: "Accounts", icon: Users },
   { href: "/jobs", label: "Jobs Queue", icon: ListTree },
+  { href: "/clipping", label: "AI Clipping", icon: Scissors },
   { href: "/credentials", label: "Credentials", icon: CheckCircle2 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

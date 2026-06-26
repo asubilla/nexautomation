@@ -11,6 +11,7 @@ import Credentials from "@/pages/credentials";
 import Jobs from "@/pages/jobs";
 import Settings from "@/pages/settings";
 import Analytics from "@/pages/analytics";
+import Clipping from "@/pages/clipping";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +30,7 @@ function Router() {
         <Route path="/accounts" component={Accounts} />
         <Route path="/credentials" component={Credentials} />
         <Route path="/jobs" component={Jobs} />
+        <Route path="/clipping" component={Clipping} />
         <Route path="/settings" component={Settings} />
         <Route path="/analytics/:id" component={Analytics} />
         <Route component={NotFound} />

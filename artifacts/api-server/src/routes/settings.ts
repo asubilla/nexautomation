@@ -2,11 +2,14 @@ import { Router, type IRouter } from "express";
 import { db, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { setSchedulerInterval } from "../services/scheduler";
+import { clearProxyCache } from "../services/uploader";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
 const DEFAULTS: Record<string, string> = {
   check_interval_ms: String(15 * 60 * 1000),
+  tiktok_proxy: "",
 };
 
 router.get("/settings", async (_req, res): Promise<void> => {
@@ -37,6 +40,12 @@ router.patch("/settings", async (req, res): Promise<void> => {
     if (!isNaN(ms) && ms > 0) {
       setSchedulerInterval(ms);
     }
+  }
+
+  // Clear proxy cache if tiktok_proxy was updated
+  if ("tiktok_proxy" in updates) {
+    clearProxyCache();
+    logger.info("TikTok proxy updated, cache cleared");
   }
 
   const rows = await db.select().from(settingsTable);

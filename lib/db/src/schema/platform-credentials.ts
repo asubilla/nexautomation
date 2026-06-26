@@ -10,6 +10,8 @@ export const platformCredentialsTable = pgTable("platform_credentials", {
   refreshToken: text("refresh_token"),
   clientId: text("client_id"),
   clientSecret: text("client_secret"),
+  loginUsername: text("login_username"),
+  loginPassword: text("login_password"),
   isValid: boolean("is_valid").notNull().default(true),
   connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
 });

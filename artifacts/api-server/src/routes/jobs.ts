@@ -22,6 +22,7 @@ function formatDownloadJob(job: typeof downloadJobsTable.$inferSelect) {
 function formatUploadJob(job: typeof uploadJobsTable.$inferSelect) {
   return {
     ...job,
+    scheduledAt: job.scheduledAt?.toISOString() ?? null,
     createdAt: job.createdAt.toISOString(),
     completedAt: job.completedAt?.toISOString() ?? null,
   };
@@ -93,6 +94,16 @@ router.post("/jobs/uploads/:id/retry", async (req, res): Promise<void> => {
 
   processPendingUploads().catch(() => {});
   res.json(formatUploadJob(job));
+});
+
+router.post("/jobs/downloads/retry-failed", async (_req, res): Promise<void> => {
+  const updated = await db
+    .update(downloadJobsTable)
+    .set({ status: "pending", errorMessage: null })
+    .where(eq(downloadJobsTable.status, "failed"))
+    .returning({ id: downloadJobsTable.id });
+  processPendingDownloads().catch(() => {});
+  res.json({ reset: updated.length, message: `${updated.length} failed download jobs reset to pending` });
 });
 
 router.post("/jobs/trigger", async (req, res): Promise<void> => {

@@ -1,7 +1,11 @@
 import { readFileSync, existsSync } from "fs";
-import { db, platformCredentialsTable } from "@workspace/db";
+import { db, platformCredentialsTable, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import { uploadToTikTokPlaywright } from "./tiktok-playwright";
+import { uploadToInstagramPlaywright } from "./instagram-playwright";
+import { uploadToFacebookPlaywright } from "./facebook-playwright";
 
 export interface UploadResult {
   success: boolean;
@@ -9,7 +13,23 @@ export interface UploadResult {
   errorMessage?: string;
 }
 
-async function getCredential(platform: string) {
+async function getCredential(platform: string, label?: string) {
+  if (label) {
+    // Try to find by specific label first (for multi-account support)
+    const [byLabel] = await db
+      .select()
+      .from(platformCredentialsTable)
+      .where(eq(platformCredentialsTable.platform, platform))
+      .limit(50);
+    // Find matching label (case-insensitive)
+    const all = await db
+      .select()
+      .from(platformCredentialsTable)
+      .where(eq(platformCredentialsTable.platform, platform));
+    const match = all.find(c => c.label.toLowerCase() === label.toLowerCase());
+    if (match) return match;
+  }
+  // Fallback: first credential for this platform
   const [cred] = await db
     .select()
     .from(platformCredentialsTable)
@@ -18,17 +38,55 @@ async function getCredential(platform: string) {
   return cred;
 }
 
+// Load TikTok proxy from DB settings (cached per process)
+let _cachedProxy: string | null | undefined = undefined;
+
+async function getTikTokProxy(): Promise<string | null> {
+  if (_cachedProxy !== undefined) return _cachedProxy;
+  try {
+    const [row] = await db
+      .select()
+      .from(settingsTable)
+      .where(eq(settingsTable.key, "tiktok_proxy"));
+    _cachedProxy = row?.value || null;
+  } catch {
+    _cachedProxy = null;
+  }
+  return _cachedProxy;
+}
+
+export function clearProxyCache(): void {
+  _cachedProxy = undefined;
+}
+
+// Fetch with optional proxy (for TikTok UK proxy)
+async function fetchWithProxy(
+  url: string,
+  options: RequestInit = {},
+  proxyUrl?: string | null
+): Promise<Response> {
+  if (proxyUrl) {
+    const agent = new HttpsProxyAgent(proxyUrl);
+    return fetch(url, { ...options, dispatcher: agent } as any);
+  }
+  return fetch(url, options);
+}
+
 export async function uploadVideo(
   platform: string,
   filePath: string,
   title: string,
-  hashtags: string
+  hashtags: string,
+  description?: string,
+  tags: string[] = [],
+  location?: string,
+  credentialLabel?: string   // optional — pick specific account by label
 ): Promise<UploadResult> {
   if (!existsSync(filePath)) {
     return { success: false, errorMessage: "Video file not found on disk" };
   }
 
-  const cred = await getCredential(platform);
+  const cred = await getCredential(platform, credentialLabel);
   if (!cred) {
     return {
       success: false,
@@ -36,18 +94,38 @@ export async function uploadVideo(
     };
   }
 
-  const description = `${title}\n\n${hashtags}`;
+  // Full description: provided description + hashtags + location
+  const fullDescription = [
+    description ?? title,
+    "",
+    hashtags,
+    location ? `📍 ${location}` : "",
+  ].filter(Boolean).join("\n").trim();
 
   try {
     switch (platform) {
       case "youtube":
-        return await uploadToYouTube(filePath, title, description, cred.accessToken, cred.refreshToken ?? undefined, cred.clientId ?? undefined, cred.clientSecret ?? undefined);
+        return await uploadToYouTube(
+          filePath, title, fullDescription, tags, cred.accessToken,
+          cred.refreshToken ?? undefined, cred.clientId ?? undefined, cred.clientSecret ?? undefined
+        );
       case "tiktok":
-        return await uploadToTikTok(filePath, title, hashtags, cred.accessToken);
+        return await uploadToTikTokPlaywright(
+          filePath, title, hashtags,
+          { username: cred.label, password: cred.accessToken },
+          location ?? "London, UK"
+        );
       case "instagram":
-        return await uploadToInstagram(filePath, title, hashtags, cred.accessToken);
+        return await uploadToInstagramPlaywright(
+          filePath,
+          fullDescription,
+          { username: cred.label, password: cred.accessToken }
+        );
       case "facebook":
-        return await uploadToFacebook(filePath, title, description, cred.accessToken);
+        return await uploadToFacebookPlaywright(
+          filePath, title, fullDescription,
+          { username: cred.label, password: cred.accessToken }
+        );
       default:
         return { success: false, errorMessage: `Unsupported upload platform: ${platform}` };
     }
@@ -61,6 +139,7 @@ async function uploadToYouTube(
   filePath: string,
   title: string,
   description: string,
+  tags: string[],
   accessToken: string,
   refreshToken?: string,
   clientId?: string,
@@ -96,7 +175,12 @@ async function uploadToYouTube(
         "X-Upload-Content-Type": "video/mp4",
       },
       body: JSON.stringify({
-        snippet: { title: title.slice(0, 100), description: description.slice(0, 5000) },
+        snippet: {
+          title: title.slice(0, 100),
+          description: description.slice(0, 5000),
+          tags: tags.slice(0, 30),              // YouTube max 30 tags
+          categoryId: "22",                      // People & Blogs
+        },
         status: { privacyStatus: "public" },
       }),
     }
@@ -140,30 +224,47 @@ async function uploadToTikTok(
   filePath: string,
   title: string,
   hashtags: string,
-  accessToken: string
+  accessToken: string,
+  location?: string
 ): Promise<UploadResult> {
-  const initRes = await fetch("https://open.tiktokapis.com/v2/post/publish/video/init/", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json; charset=UTF-8",
+  // Always use London, UK as default location for TikTok
+  const effectiveLocation = location || "London, UK";
+  const caption = `${title} ${hashtags} 📍${effectiveLocation}`;
+
+  // Use UK proxy if configured
+  const proxyUrl = await getTikTokProxy();
+  if (proxyUrl) {
+    logger.info({ proxy: proxyUrl.replace(/:([^:@]+)@/, ":***@") }, "TikTok: using UK proxy");
+  } else {
+    logger.info("TikTok: no proxy configured, uploading directly");
+  }
+
+  const initRes = await fetchWithProxy(
+    "https://open.tiktokapis.com/v2/post/publish/video/init/",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+      body: JSON.stringify({
+        post_info: {
+          title: caption.slice(0, 150),
+          privacy_level: "PUBLIC_TO_EVERYONE",
+          disable_duet: false,
+          disable_comment: false,
+          disable_stitch: false,
+        },
+        source_info: {
+          source: "FILE_UPLOAD",
+          video_size: readFileSync(filePath).byteLength,
+          chunk_size: readFileSync(filePath).byteLength,
+          total_chunk_count: 1,
+        },
+      }),
     },
-    body: JSON.stringify({
-      post_info: {
-        title: `${title} ${hashtags}`.slice(0, 150),
-        privacy_level: "PUBLIC_TO_EVERYONE",
-        disable_duet: false,
-        disable_comment: false,
-        disable_stitch: false,
-      },
-      source_info: {
-        source: "FILE_UPLOAD",
-        video_size: readFileSync(filePath).byteLength,
-        chunk_size: readFileSync(filePath).byteLength,
-        total_chunk_count: 1,
-      },
-    }),
-  });
+    proxyUrl
+  );
 
   if (!initRes.ok) {
     const err = await initRes.text();
@@ -179,14 +280,18 @@ async function uploadToTikTok(
   }
 
   const fileData = readFileSync(filePath);
-  const uploadRes = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Range": `bytes 0-${fileData.byteLength - 1}/${fileData.byteLength}`,
-      "Content-Type": "video/mp4",
+  const uploadRes = await fetchWithProxy(
+    uploadUrl,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Range": `bytes 0-${fileData.byteLength - 1}/${fileData.byteLength}`,
+        "Content-Type": "video/mp4",
+      },
+      body: fileData,
     },
-    body: fileData,
-  });
+    proxyUrl
+  );
 
   if (!uploadRes.ok) {
     const err = await uploadRes.text();
@@ -203,8 +308,14 @@ async function uploadToInstagram(
   filePath: string,
   title: string,
   hashtags: string,
-  accessToken: string
+  accessToken: string,
+  location?: string
 ): Promise<UploadResult> {
+  // NOTE: Instagram Graph API requires a publicly accessible video URL for Reels.
+  // Direct file upload is not supported via the Graph API.
+  // This function uses the Reels Publishing API with a video_url parameter.
+  // For local files, the Playwright uploader (uploadToInstagramPlaywright) is preferred.
+
   const meRes = await fetch(`https://graph.instagram.com/me?fields=id&access_token=${accessToken}`);
   if (!meRes.ok) {
     return { success: false, errorMessage: "Invalid Instagram access token" };
@@ -212,56 +323,25 @@ async function uploadToInstagram(
   const meData = await meRes.json() as any;
   const userId = meData.id;
 
-  const caption = `${title}\n\n${hashtags}`;
+  const caption = location
+    ? `${title}\n\n${hashtags}\n\n📍 ${location}`
+    : `${title}\n\n${hashtags}`;
 
-  const containerRes = await fetch(
-    `https://graph.instagram.com/v19.0/${userId}/media`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        media_type: "REELS",
-        caption: caption.slice(0, 2200),
-        access_token: accessToken,
-        share_to_feed: true,
-      }),
-    }
-  );
-
-  if (!containerRes.ok) {
-    const err = await containerRes.text();
-    return { success: false, errorMessage: `Instagram container error: ${err.slice(0, 200)}` };
-  }
-
-  const containerData = await containerRes.json() as any;
-  const containerId = containerData.id;
-
-  const publishRes = await fetch(
-    `https://graph.instagram.com/v19.0/${userId}/media_publish`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ creation_id: containerId, access_token: accessToken }),
-    }
-  );
-
-  if (!publishRes.ok) {
-    const err = await publishRes.text();
-    return { success: false, errorMessage: `Instagram publish error: ${err.slice(0, 200)}` };
-  }
-
-  const publishData = await publishRes.json() as any;
+  // Instagram Graph API Reels publishing requires a public video URL.
+  // Local file path cannot be used directly — use Playwright uploader for local files.
   return {
-    success: true,
-    uploadedUrl: `https://instagram.com/p/${publishData.id}`,
+    success: false,
+    errorMessage: "Instagram Graph API requires a public video URL. Use Playwright uploader for local files.",
   };
 }
+
 
 async function uploadToFacebook(
   filePath: string,
   title: string,
   description: string,
-  accessToken: string
+  accessToken: string,
+  location?: string
 ): Promise<UploadResult> {
   const meRes = await fetch(`https://graph.facebook.com/me?fields=id&access_token=${accessToken}`);
   if (!meRes.ok) {
@@ -270,11 +350,15 @@ async function uploadToFacebook(
   const meData = await meRes.json() as any;
   const userId = meData.id;
 
+  const fullDescription = location
+    ? `${description}\n\n📍 ${location}`
+    : description;
+
   const fileData = readFileSync(filePath);
 
   const formData = new FormData();
   formData.append("title", title.slice(0, 100));
-  formData.append("description", description.slice(0, 2000));
+  formData.append("description", fullDescription.slice(0, 2000));
   formData.append("access_token", accessToken);
   formData.append("file", new Blob([fileData], { type: "video/mp4" }), "video.mp4");
 

@@ -1,175 +1,381 @@
 import { useListCredentials, useCreateCredential, useDeleteCredential, getListCredentialsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Key, CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Info, Plus, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const PLATFORMS = ["youtube", "instagram", "facebook", "tiktok"] as const;
+type Platform = typeof PLATFORMS[number];
+
+const PLATFORM_INFO: Record<Platform, {
+  label: string;
+  color: string;
+  method: "oauth" | "username_password";
+  description: string;
+  usernameLabel?: string;
+  usernamePlaceholder?: string;
+  passwordLabel?: string;
+  passwordPlaceholder?: string;
+  helpText?: string;
+}> = {
+  youtube: {
+    label: "YouTube",
+    color: "#FF0000",
+    method: "oauth",
+    description: "Google OAuth se safely connect hoga — koi password nahi dena.",
+  },
+  instagram: {
+    label: "Instagram",
+    color: "#E1306C",
+    method: "username_password",
+    description: "Browser automation se upload hoga.",
+    usernameLabel: "Instagram Username / Email",
+    usernamePlaceholder: "e.g. myaccount or email@gmail.com",
+    passwordLabel: "Instagram Password",
+    passwordPlaceholder: "Your Instagram password",
+    helpText: "2FA enable hai toh pehle disable karo ya app password use karo.",
+  },
+  facebook: {
+    label: "Facebook",
+    color: "#1877F2",
+    method: "username_password",
+    description: "Browser automation se upload hoga.",
+    usernameLabel: "Facebook Email / Phone",
+    usernamePlaceholder: "e.g. email@gmail.com",
+    passwordLabel: "Facebook Password",
+    passwordPlaceholder: "Your Facebook password",
+    helpText: "Business page wali account use karo for best results.",
+  },
+  tiktok: {
+    label: "TikTok",
+    color: "#010101",
+    method: "username_password",
+    description: "Browser automation se upload hoga.",
+    usernameLabel: "TikTok Username / Email",
+    usernamePlaceholder: "e.g. @myusername or email@gmail.com",
+    passwordLabel: "TikTok Password",
+    passwordPlaceholder: "Your TikTok password",
+    helpText: "UK geolocation automatically set hogi uploads ke liye.",
+  },
+};
 
 export default function Credentials() {
   const { data: credentials, isLoading } = useListCredentials();
   const deleteCredential = useDeleteCredential();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [connectingPlatform, setConnectingPlatform] = useState<Platform | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const handleDelete = (id: number) => {
-    if (confirm("Disconnect this platform? Uploads will fail until reconnected.")) {
-      deleteCredential.mutate({ id }, {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
-          toast({ title: "Credential removed" });
-        }
-      });
+  // Handle Google OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get("success");
+    const error = params.get("error");
+    if (success === "youtube") {
+      toast({ title: "✅ YouTube Connected!", description: "Google account successfully linked." });
+      queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
+      window.history.replaceState({}, "", "/credentials");
+    } else if (error) {
+      toast({ title: "OAuth Failed", description: decodeURIComponent(error), variant: "destructive" });
+      window.history.replaceState({}, "", "/credentials");
+    }
+  }, []);
+
+  const handleDelete = (id: number, label: string, platform: string) => {
+    if (!confirm(`Disconnect "${label}" from ${platform}? Uploads will fail until reconnected.`)) return;
+    setDeletingId(id);
+    deleteCredential.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
+        toast({ title: "Disconnected", description: `${label} account removed.` });
+        setDeletingId(null);
+      },
+      onError: () => setDeletingId(null),
+    });
+  };
+
+  const handleConnectClick = (platform: Platform) => {
+    if (platform === "youtube") {
+      window.location.href = "/api/auth/youtube";
+    } else {
+      setConnectingPlatform(platform);
     }
   };
 
-  const platforms = PLATFORMS;
+  // Group credentials by platform
+  const credsByPlatform = (platform: Platform) =>
+    Array.isArray(credentials) ? credentials.filter(c => c.platform === platform) : [];
+
+  const totalConnected = Array.isArray(credentials) ? credentials.length : 0;
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">Platform Credentials</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">Connect accounts where AI generated content will be uploaded.</p>
+          <p className="text-muted-foreground mt-1 font-mono text-sm">
+            Multiple accounts connect karo — AI Clipping campaigns inhe use karengi.
+          </p>
         </div>
-        <AddCredentialDialog />
+        {totalConnected > 0 && (
+          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-2">
+            <Users className="w-4 h-4 text-green-400" />
+            <span className="text-green-400 font-mono text-sm font-semibold">{totalConnected} Account{totalConnected !== 1 ? "s" : ""} Connected</span>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {platforms.map(platform => {
-          const cred = credentials?.find(c => c.platform === platform);
-          const isConnected = !!cred;
+      {/* Platform Sections */}
+      <div className="space-y-6">
+        {PLATFORMS.map((platform) => {
+          const info = PLATFORM_INFO[platform];
+          const creds = credsByPlatform(platform);
+          const count = creds.length;
 
           return (
-            <div key={platform} className={cn("bg-card border rounded-lg p-6 relative overflow-hidden transition-colors", isConnected ? "border-primary/50 bg-primary/5" : "border-border")}>
-              <div className="flex justify-between items-start mb-6">
-                <PlatformIcon platform={platform} className="w-12 h-12" withBackground />
-                {isConnected ? (
-                  <span className="flex items-center gap-1.5 text-xs font-mono font-medium text-green-500 bg-green-500/10 px-2 py-1 rounded">
-                    <CheckCircle2 className="w-3 h-3" />
-                    CONNECTED
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 text-xs font-mono font-medium text-muted-foreground bg-white/5 px-2 py-1 rounded">
-                    <XCircle className="w-3 h-3" />
-                    DISCONNECTED
-                  </span>
-                )}
+            <div key={platform} className="bg-card border border-border rounded-xl overflow-hidden">
+              {/* Platform Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-white/[0.02]">
+                <div className="flex items-center gap-3">
+                  <PlatformIcon platform={platform} className="w-9 h-9" withBackground />
+                  <div>
+                    <h3 className="font-bold text-white text-base">{info.label}</h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={cn(
+                        "text-[10px] font-mono px-2 py-0.5 rounded border uppercase tracking-wider",
+                        info.method === "oauth"
+                          ? "text-blue-400 border-blue-500/20 bg-blue-500/10"
+                          : "text-yellow-400 border-yellow-500/20 bg-yellow-500/10"
+                      )}>
+                        {info.method === "oauth" ? "🔐 Google OAuth" : "🤖 Browser Automation"}
+                      </span>
+                      {count > 0 && (
+                        <span className="text-[10px] font-mono text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded uppercase">
+                          {count} account{count !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  className="gap-2 font-mono text-xs h-8"
+                  onClick={() => handleConnectClick(platform)}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Account
+                </Button>
               </div>
-              
-              <div>
-                <h3 className="font-bold text-lg text-white capitalize">{platform}</h3>
-                {isConnected ? (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-sm font-mono text-foreground">{cred.label}</p>
-                    <p className="text-xs font-mono text-muted-foreground">Connected {formatDistanceToNow(new Date(cred.connectedAt), { addSuffix: true })}</p>
-                    
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full mt-4 border-destructive/50 text-destructive hover:bg-destructive/10 font-mono"
-                      onClick={() => handleDelete(cred.id)}
+
+              {/* Accounts List */}
+              {count === 0 ? (
+                <div className="px-6 py-8 flex flex-col items-center gap-2 text-center">
+                  <XCircle className="w-8 h-8 text-muted-foreground/40" />
+                  <p className="text-sm font-mono text-muted-foreground">No accounts connected</p>
+                  <p className="text-xs font-mono text-muted-foreground/60">{info.description}</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {creds.map((cred, idx) => (
+                    <div
+                      key={cred.id}
+                      className="flex items-center justify-between px-6 py-3.5 hover:bg-white/[0.02] transition-colors"
                     >
-                      DISCONNECT
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="mt-2">
-                    <p className="text-xs font-mono text-muted-foreground mb-4">Required for automated uploading.</p>
-                    <AddCredentialDialog defaultPlatform={platform as any} buttonProps={{ className: "w-full font-mono", size: "sm" }} />
-                  </div>
-                )}
-              </div>
+                      <div className="flex items-center gap-3">
+                        {/* Account number badge */}
+                        <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[11px] font-mono font-bold text-primary">{idx + 1}</span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-mono text-white font-medium">{cred.label}</p>
+                            <span className="flex items-center gap-1 text-[10px] font-mono text-green-400">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Connected
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                            Added {formatDistanceToNow(new Date(cred.connectedAt), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        onClick={() => handleDelete(cred.id, cred.label, info.label)}
+                        disabled={deletingId === cred.id}
+                      >
+                        {deletingId === cred.id
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Trash2 className="w-3.5 h-3.5" />
+                        }
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+
+      {/* Info box */}
+      <div className="bg-card border border-border rounded-lg p-4 flex gap-3">
+        <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+        <div className="text-xs font-mono text-muted-foreground space-y-1">
+          <p className="text-white font-semibold">Multiple Accounts</p>
+          <p>• Ek hi platform ke multiple accounts add kar sakte ho (e.g., 3 Instagram accounts)</p>
+          <p>• Campaign setup mein choose kar sako ge ke konsa account use ho</p>
+          <p>• Sab credentials securely database mein encrypted store hote hain</p>
+          <p>• <span className="text-white">YouTube</span> — Google OAuth (safest, token auto-refresh hota hai)</p>
+          <p>• <span className="text-white">Instagram / Facebook / TikTok</span> — Username + Password (browser automation)</p>
+        </div>
+      </div>
+
+      {/* Connect Dialog */}
+      {connectingPlatform && connectingPlatform !== "youtube" && (
+        <ConnectDialog
+          platform={connectingPlatform}
+          open={!!connectingPlatform}
+          onClose={() => setConnectingPlatform(null)}
+          onSuccess={() => {
+            setConnectingPlatform(null);
+            queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function AddCredentialDialog({ defaultPlatform, buttonProps = {} }: { defaultPlatform?: string, buttonProps?: any }) {
-  const [open, setOpen] = useState(false);
-  const [platform, setPlatform] = useState<string>(defaultPlatform || "youtube");
-  const [label, setLabel] = useState("");
-  const [accessToken, setAccessToken] = useState("");
-  
+function ConnectDialog({
+  platform,
+  open,
+  onClose,
+  onSuccess,
+}: {
+  platform: Platform;
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const info = PLATFORM_INFO[platform];
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const createCredential = useCreateCredential();
-  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!platform || !label || !accessToken) return;
+    if (!username.trim() || !password.trim()) return;
 
-    createCredential.mutate({ 
-      data: { 
-        platform: platform as any, 
-        label, 
-        accessToken 
-      } 
-    }, {
-      onSuccess: () => {
-        toast({ title: "Credential added successfully" });
-        queryClient.invalidateQueries({ queryKey: getListCredentialsQueryKey() });
-        setOpen(false);
-        setLabel("");
-        setAccessToken("");
+    createCredential.mutate(
+      {
+        data: {
+          platform: platform as any,
+          label: username.trim(),
+          accessToken: password.trim(),
+        },
       },
-      onError: (err: any) => {
-        toast({ title: "Error adding credential", description: err.message, variant: "destructive" });
+      {
+        onSuccess: () => {
+          toast({
+            title: `✅ ${info.label} Connected!`,
+            description: `@${username} account saved successfully.`,
+          });
+          setUsername("");
+          setPassword("");
+          onSuccess();
+        },
+        onError: (err: any) => {
+          toast({
+            title: `${info.label} Connection Failed`,
+            description: err.data?.error ?? err.message ?? "Invalid credentials",
+            variant: "destructive",
+          });
+        },
       }
-    });
+    );
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button {...buttonProps} className={cn("gap-2 font-mono", buttonProps.className)}>
-          <Key className="w-4 h-4" />
-          CONNECT
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
-          <DialogTitle>Connect Platform</DialogTitle>
+          <DialogTitle className="flex items-center gap-3">
+            <PlatformIcon platform={platform} className="w-7 h-7" withBackground />
+            Add {info.label} Account
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          {!defaultPlatform && (
-            <div className="space-y-2">
-              <label className="text-xs font-mono text-muted-foreground uppercase">Platform</label>
-              <Select value={platform} onValueChange={setPlatform}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select platform" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PLATFORMS.map(p => (
-                    <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+            <span className="text-yellow-400 text-xs font-mono">🤖 Browser Automation</span>
+            <span className="text-muted-foreground text-xs font-mono">— Playwright se login karke upload karega</span>
+          </div>
+
+          <p className="text-xs text-muted-foreground font-mono">{info.description}</p>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-mono text-muted-foreground uppercase">
+              {info.usernameLabel}
+            </label>
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder={info.usernamePlaceholder}
+              autoComplete="off"
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-mono text-muted-foreground uppercase">
+              {info.passwordLabel}
+            </label>
+            <Input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={info.passwordPlaceholder}
+              type="password"
+              autoComplete="new-password"
+              required
+            />
+          </div>
+
+          {info.helpText && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <Info className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+              <p className="text-xs font-mono text-muted-foreground">{info.helpText}</p>
             </div>
           )}
-          <div className="space-y-2">
-            <label className="text-xs font-mono text-muted-foreground uppercase">Account Label</label>
-            <Input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. Main Channel" required />
+
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
+            <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs font-mono text-muted-foreground">
+              Credentials verify honge. Agar captcha aaya to account automatically save hoga aur pehle upload pe test hoga.
+            </p>
           </div>
-          <div className="space-y-2">
-            <label className="text-xs font-mono text-muted-foreground uppercase">API Token</label>
-            <Input value={accessToken} onChange={e => setAccessToken(e.target.value)} placeholder="Paste your API access token" type="password" required />
-            <p className="text-[10px] text-muted-foreground font-mono mt-1">In a real app, this would use OAuth.</p>
-          </div>
-          <div className="pt-4 flex justify-end gap-2">
-            <Button variant="outline" type="button" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={createCredential.isPending}>
-              {createCredential.isPending ? "Connecting..." : "Connect"}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" type="button" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createCredential.isPending} className="gap-2">
+              {createCredential.isPending ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying &amp; Connecting...</>
+              ) : (
+                `Add ${info.label} Account`
+              )}
             </Button>
           </div>
         </form>
@@ -177,3 +383,5 @@ function AddCredentialDialog({ defaultPlatform, buttonProps = {} }: { defaultPla
     </Dialog>
   );
 }
+
+

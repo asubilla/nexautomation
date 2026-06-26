@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, count, sql, desc, and, sum, inArray } from "drizzle-orm";
-import { db, monitoredAccountsTable, downloadJobsTable, uploadJobsTable, activityItemsTable } from "@workspace/db";
+import { db, monitoredAccountsTable, downloadJobsTable, uploadJobsTable, activityItemsTable, platformCredentialsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -20,6 +20,22 @@ router.get("/analytics/accounts/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Account not found" });
     return;
   }
+
+  // Get upload credentials for this account's target platforms
+  const uploadTargetsList: string[] = (() => {
+    try { return JSON.parse(account.uploadTargets ?? "[]"); } catch { return []; }
+  })();
+
+  const uploadCredentials = uploadTargetsList.length > 0
+    ? await db
+        .select({
+          platform: platformCredentialsTable.platform,
+          label: platformCredentialsTable.label,
+          isValid: platformCredentialsTable.isValid,
+        })
+        .from(platformCredentialsTable)
+        .where(inArray(platformCredentialsTable.platform, uploadTargetsList))
+    : [];
 
   const downloadIds = db
     .select({ id: downloadJobsTable.id })
@@ -53,6 +69,7 @@ router.get("/analytics/accounts/:id", async (req, res): Promise<void> => {
         done: count(sql`CASE WHEN ${uploadJobsTable.status} = 'done' THEN 1 END`),
         failed: count(sql`CASE WHEN ${uploadJobsTable.status} = 'failed' THEN 1 END`),
         pending: count(sql`CASE WHEN ${uploadJobsTable.status} = 'pending' THEN 1 END`),
+        scheduled: count(sql`CASE WHEN ${uploadJobsTable.status} = 'pending' AND ${(uploadJobsTable as any).scheduledAt} IS NOT NULL THEN 1 END`),
       })
       .from(uploadJobsTable)
       .where(sql`${uploadJobsTable.downloadJobId} IN (${downloadIds})`),
@@ -178,7 +195,13 @@ router.get("/analytics/accounts/:id", async (req, res): Promise<void> => {
           platform: uploadJobsTable.targetPlatform,
           status: uploadJobsTable.status,
           aiTitle: uploadJobsTable.aiTitle,
+          aiDescription: (uploadJobsTable as any).aiDescription,
+          aiHashtags: uploadJobsTable.aiHashtags,
+          aiTags: (uploadJobsTable as any).aiTags,
+          aiLocation: uploadJobsTable.aiLocation,
+          scheduledAt: (uploadJobsTable as any).scheduledAt,
           uploadedUrl: uploadJobsTable.uploadedUrl,
+          createdAt: uploadJobsTable.createdAt,
           completedAt: uploadJobsTable.completedAt,
         })
         .from(uploadJobsTable)
@@ -194,7 +217,12 @@ router.get("/analytics/accounts/:id", async (req, res): Promise<void> => {
   res.json({
     account: {
       ...account,
-      uploadTargets: (() => { try { return JSON.parse(account.uploadTargets ?? "[]"); } catch { return []; } })(),
+      uploadTargets: uploadTargetsList,
+      uploadCredentials: uploadCredentials.map(c => ({
+        platform: c.platform,
+        username: c.label,
+        isValid: c.isValid,
+      })),
       lastCheckedAt: account.lastCheckedAt?.toISOString() ?? null,
       lastVideoAt: account.lastVideoAt?.toISOString() ?? null,
       createdAt: account.createdAt.toISOString(),
@@ -212,6 +240,7 @@ router.get("/analytics/accounts/:id", async (req, res): Promise<void> => {
       done: ulDone,
       failed: Number(ul?.failed ?? 0),
       pending: Number(ul?.pending ?? 0),
+      scheduled: Number((ul as any)?.scheduled ?? 0),
       successRate: uploadSuccessRate,
     },
     uploadsByPlatform: uploadByPlatform.map(p => ({
@@ -235,6 +264,8 @@ router.get("/analytics/accounts/:id", async (req, res): Promise<void> => {
       completedAt: v.completedAt?.toISOString() ?? null,
       uploads: (uploadMap[v.id] ?? []).map(u => ({
         ...u,
+        scheduledAt: (u as any).scheduledAt ? new Date((u as any).scheduledAt).toISOString() : null,
+        createdAt: u.createdAt.toISOString(),
         completedAt: u.completedAt?.toISOString() ?? null,
       })),
     })),

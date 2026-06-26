@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
-import { useHealthCheck } from "@workspace/api-client-react";
-import { CheckCircle2, AlertTriangle, Clock, Zap, Database, Check } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Clock, Zap, Database, Check, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+
+const STORAGE_KEY = "nex_check_interval_ms";
+const DEFAULT_INTERVAL = 15 * 60_000;
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const INTERVAL_PRESETS = [
   { label: "5 sec", ms: 5_000 },
@@ -23,41 +27,71 @@ function msToLabel(ms: number): string {
 }
 
 async function fetchSettings(): Promise<Record<string, string>> {
-  const res = await fetch("/api/settings");
-  if (!res.ok) throw new Error("Failed to load settings");
-  return res.json();
+  try {
+    const res = await fetch(`${BASE}/api/settings`);
+    if (!res.ok) throw new Error("API unavailable");
+    return res.json();
+  } catch {
+    // fallback to localStorage when API is down
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return { check_interval_ms: stored ?? String(DEFAULT_INTERVAL) };
+  }
 }
 
-async function patchSettings(values: Record<string, string>): Promise<Record<string, string>> {
-  const res = await fetch("/api/settings", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(values),
-  });
-  if (!res.ok) throw new Error("Failed to save settings");
-  return res.json();
+async function patchSettings(values: Record<string, string>): Promise<void> {
+  // Always save to localStorage first — works even without backend
+  if (values.check_interval_ms) {
+    localStorage.setItem(STORAGE_KEY, values.check_interval_ms);
+  }
+  // Best-effort sync to backend
+  try {
+    const res = await fetch(`${BASE}/api/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    if (!res.ok) throw new Error("API unavailable");
+  } catch {
+    // silently ignore — localStorage save already succeeded
+  }
 }
 
 export default function Settings() {
-  const { data: health, isLoading: healthLoading } = useHealthCheck();
   const { toast } = useToast();
 
-  const [currentMs, setCurrentMs] = useState<number>(15 * 60_000);
+  const [currentMs, setCurrentMs] = useState<number>(DEFAULT_INTERVAL);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  const [tiktokProxy, setTiktokProxy] = useState("");
+  const [proxySaving, setProxySaving] = useState(false);
 
   useEffect(() => {
-    fetchSettings()
-      .then(s => {
-        const ms = parseInt(s["check_interval_ms"] ?? "", 10);
-        if (!isNaN(ms)) setCurrentMs(ms);
-        setLoaded(true);
-      })
-      .catch(() => setLoaded(true));
+    fetchSettings().then(s => {
+      const ms = parseInt(s["check_interval_ms"] ?? "", 10);
+      if (!isNaN(ms)) setCurrentMs(ms);
+      setTiktokProxy(s["tiktok_proxy"] ?? "");
+      setLoaded(true);
+    });
+    fetch(`${BASE}/api/healthz`)
+      .then(r => setApiOnline(r.ok))
+      .catch(() => setApiOnline(false));
   }, []);
 
+  const handleProxySave = async () => {
+    setProxySaving(true);
+    try {
+      await patchSettings({ tiktok_proxy: tiktokProxy });
+      toast({ title: "TikTok proxy saved", description: tiktokProxy ? `UK proxy set: ${tiktokProxy.replace(/:([^:@]+)@/, ":***@")}` : "Proxy removed." });
+    } catch {
+      toast({ title: "Save failed", variant: "destructive" });
+    } finally {
+      setProxySaving(false);
+    }
+  };
+
   const handleSelect = async (ms: number) => {
-    if (ms === currentMs) return;
+    if (ms === currentMs || saving) return;
     setSaving(true);
     try {
       await patchSettings({ check_interval_ms: String(ms) });
@@ -76,7 +110,7 @@ export default function Settings() {
   const handleClearJobs = async () => {
     if (!confirm("Completed job logs clear karne hain? Downloaded files aur credentials safe rahenge.")) return;
     try {
-      await fetch("/api/jobs/downloads?status=done", { method: "DELETE" }).catch(() => {});
+      await fetch(`${BASE}/api/jobs/downloads?status=done`, { method: "DELETE" }).catch(() => {});
       toast({ title: "Cache cleared", description: "Completed jobs removed." });
     } catch {
       toast({ title: "Failed to clear cache", variant: "destructive" });
@@ -160,9 +194,9 @@ export default function Settings() {
           <div className="space-y-2">
             <div className="flex items-center justify-between p-3 rounded-md bg-white/5">
               <span className="font-mono text-sm text-muted-foreground">API Server</span>
-              {healthLoading ? (
+              {apiOnline === null ? (
                 <span className="font-mono text-sm text-yellow-500">CHECKING...</span>
-              ) : health?.status === "ok" ? (
+              ) : apiOnline ? (
                 <span className="font-mono text-sm text-green-500 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" /> HEALTHY
                 </span>
@@ -184,6 +218,46 @@ export default function Settings() {
               <span className="font-mono text-sm text-muted-foreground">Concurrent Downloads</span>
               <span className="font-mono text-sm text-white">3 parallel</span>
             </div>
+          </div>
+        </div>
+
+        {/* TikTok UK Proxy */}
+        <div className="bg-card border border-border rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-md bg-primary/10 text-primary">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">TikTok UK Proxy</h2>
+              <p className="text-xs text-muted-foreground font-mono">
+                TikTok upload pe hamesha yahi UK proxy use hogi — consistent aur fixed.
+              </p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <Input
+              value={tiktokProxy}
+              onChange={e => setTiktokProxy(e.target.value)}
+              placeholder="http://user:pass@proxy-uk.example.com:8080"
+              className="font-mono text-sm bg-white/5"
+            />
+            <p className="text-xs text-muted-foreground font-mono">
+              Format: <span className="text-white">http://username:password@host:port</span>
+              {" "}ya <span className="text-white">socks5://host:port</span>
+            </p>
+            {tiktokProxy && (
+              <div className="flex items-center gap-2 text-xs font-mono text-green-400">
+                <div className="w-2 h-2 rounded-full bg-green-400" />
+                Proxy set — TikTok uploads UK se hongi
+              </div>
+            )}
+            <Button
+              onClick={handleProxySave}
+              disabled={proxySaving}
+              className="font-mono"
+            >
+              {proxySaving ? "Saving..." : "SAVE PROXY"}
+            </Button>
           </div>
         </div>
 
